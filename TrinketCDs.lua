@@ -1,17 +1,35 @@
 local POS_X = 125
-local POS_Y = -140
-local POS_MARGIN = 0
+local POS_Y = -155
 local ICON_SIZE = 28
+local POS_MARGIN = 7
+local ZOOM = 0.1
 
-local TRINKETS_CACHE = {}
 local FRAMES = {}
-local hands = GetSpellInfo(54758)
-local hands_applied = false
-
+local ITEMS_CACHE = {}
 local ITEM_QUALITY = {
-    [3] = function() return 0.00, 0.44, 0.87 end,
-    [4] = function() return 0.64, 0.21, 0.93 end,
+    [1] = {1.00, 1.00, 1.00},
+    [2] = {0.12, 1.00, 0.00},
+    [3] = {0.00, 0.44, 0.87},
+    [4] = {0.66, 0.33, 1.00},
+    [7] = {0.90, 0.80, 0.50},
 }
+local COORDS = {
+    [13] = {
+        POS_X,
+        POS_Y,
+        ICON_SIZE
+    },
+    [14] = {
+        POS_X + ICON_SIZE + POS_MARGIN,
+        POS_Y,
+        ICON_SIZE
+    },
+}
+
+local TrinketsData = _G.TrinketsData
+local trinket_CDs = TrinketsData.trinket_CDs
+local trinket_buffs = TrinketsData.trinket_buffs
+local multibuff = TrinketsData.multibuff
 
 SLASH_RIDEPAD_TRINKETS1 = "/tcdp"
 SlashCmdList["RIDEPAD_TRINKETS"] = function()
@@ -25,234 +43,74 @@ SlashCmdList["RIDEPAD_TRINKETS"] = function()
     print(msg)
 end
 
-local ashen_rings = {
-    [50397] = 72416, -- SP DD
-    [50398] = 72416,
-    [50399] = 72418, -- SP Heal
-    [50400] = 72418,
-    [50401] = 72412, -- ATK AGI
-    [50402] = 72412,
-    [52571] = 72412, -- ATK STR
-    [52572] = 72412,
-    [50403] = 72414, -- TANK
-    [50404] = 72414,
-}
+local get_item = function(itemID)
+    local item = ITEMS_CACHE[itemID]
+    if item then return item end
 
-local cloaks = {
-    [3722] = 55637, -- Lightweave
-    [3730] = 55775, -- Swordguard
-    [3728] = 55767, -- Darkglow
-}
-
-local trinket_CDs = {}
-do
-    local _CDs = {
-        [0] = {
-            37111,        -- Soul Preserver
-            40432,        -- Illustration of the Dragon Soul
-            45308,        -- Eye of the Broodmother
-            50345, 50340, -- Muradin's Spyglass
-            47432, 47271, -- Solace of the Fallen
-            47059, 47041, -- Solace of the Defeated
-            50706, 50351, -- Tiny Abomination in a Jar
-            47477, 47316, -- Reign of the Dead
-            47188, 47182, -- Reign of the Unliving
-        },
-        [45] = {
-            47216,        -- The Black Heart
-            50358,        -- Purified Lunar Dust
-            54590, 54569, -- Sharpened Twilight Scale
-            54591, 54571, -- Petrified Twilight Scale
-            50348, 50353, -- Dislodged Foreign Object
-        },
-        [50] = {
-            54588, 54572, -- Charred Twilight Scale
-        },
-        [100] = {
-            50365, 50360, -- Phylactery of the Nameless Lich
-        },
-        [120] = {
-            54589, 54573, -- Glowing Twilight Scale
-            48724,        -- Talisman of Resurgence
-            50260,        -- Ephemeral Snowflake
-        },
-    }
-    for cd_duration, IDs in pairs(_CDs) do
-        for _, item_id in ipairs(IDs) do
-            trinket_CDs[item_id] = cd_duration
-        end
-    end
-end
-
-local trinket_buffs = {
-    [54588] = 75473, -- Charred Twilight Scale
-    [54572] = 75466,
-
-    [54589] = 75495, -- Glowing Twilight Scale
-    [54573] = 75490,
-
-    [54590] = 75456, -- Sharpened Twilight Scale
-    [54569] = 75458,
-
-    [54591] = 75480, -- Petrified Twilight Scale
-    [54571] = 75477,
-
-    [50365] = 71636, -- Phylactery of the Nameless Lich
-    [50360] = 71605,
-
-    [50348] = 71644, -- Dislodged Foreign Object
-    [50353] = 71601,
-
-    [50345] = 71572, -- Muradin's Spyglass
-    [50340] = 75473,
-
-    [47432] = 67750, -- Solace of the Fallen
-    [47271] = 67696,
-
-    [47059] = 67750, -- Solace of the Defeated
-    [47041] = 67696,
-
-    [50706] = 71432, -- Tiny Abomination in a Jar
-    [50351] = 71432,
-
-    [47477] = 67759, -- Reign of the Dead
-    [47316] = 67713,
-
-    [47188] = 67759, -- Reign of the Unliving
-    [47182] = 67713,
-
-    [40432] = 60486, -- Illustration of the Dragon Soul
-    [47213] = 67669, -- Abyssal Rune
-    [44912] = 60064, -- Flow of Knowledge
-    [40682] = 60064, -- Sundial of the Exiled
-    [49076] = 60064, -- Mithril Pocketwatch
-    [45308] = 65006, -- Eye of the Broodmother
-    [50358] = 71584, -- Purified Lunar Dust
-    [48724] = 67684, -- Talisman of Resurgence
-    [37111] = 60515, -- Soul Preserver
-    [47216] = 67631, -- The Black Heart
-    [50260] = 71568, -- Ephemeral Snowflake
-}
-
-local items_without_swap_cd = {
-    [40432] = true, -- Illustration of the Dragon Soul
-    [37111] = true, -- Soul Preserver
-    [50340] = true, -- Muradin's Spyglass
-    [50345] = true,
-    [50706] = true, -- Tiny Abomination in a Jar
-    [50351] = true,
-    [47432] = true, -- Solace of the Fallen
-    [47271] = true,
-    [47059] = true, -- Solace of the Defeated
-    [47041] = true,
-    [47477] = true, -- Reign of the Dead
-    [47316] = true,
-    [47188] = true, -- Reign of the Unliving
-    [47182] = true,
-}
-
-local items_with_active = {
-    [54589] = true,
-    [54573] = true,
-    [48724] = true,
-}
-
-local function get_trinket(item_id)
-    local trink = TRINKETS_CACHE[item_id]
-    if trink then return trink end
-    local _, _, itemQuality, itemLevel, _, _, _, _, _, itemTexture = GetItemInfo(item_id)
-    trink = {
-        icon = itemTexture,
+    local _, _, itemQuality, itemLevel, _, _, _, _, _, texture = GetItemInfo(itemID)
+    item = {
         ready = true,
-        cd_finish = 0,
-        cd = trinket_CDs[item_id],
-        spell_id = trinket_buffs[item_id],
+        icon = texture,
         quality = itemQuality,
         ilvl = itemLevel,
+        spellID = trinket_buffs[itemID],
+        cd = trinket_CDs[itemID] or 45,
+        cd_finish = 0,
     }
-    TRINKETS_CACHE[item_id] = trink
-    return trink
+    ITEMS_CACHE[itemID] = item
+    return item
 end
 
-local function apply_cd(self, trink, dur)
-    trink.ready = false
-    trink.applied = false
-    trink.on_cd = true
-    self.tex:SetDesaturated(1)
-    self.stacks_text:SetText(nil)
-    self.trinkCooldown:SetReverse(false)
-    self.trinkCooldown:SetCooldown(trink.cd_start, dur)
+local reset_frame = function(self)
+    self.stacksText:SetText()
+    self.texture:SetDesaturated(0)
+    self.cooldown:SetReverse(false)
+    self.cooldown:SetCooldown(0, 0)
 end
 
-local function reset_frame(self)
-    self.tex:SetDesaturated(0)
-    self.stacks_text:SetText(nil)
-    self.trinkCooldown:SetReverse(false)
-    self.trinkCooldown:SetCooldown(0, 0)
+local apply_cd = function(self, dur)
+    self.item.ready = false
+    self.item.applied = false
+    self.item.on_cd = true
+    self.stacksText:SetText()
+    self.texture:SetDesaturated(1)
+    self.cooldown:SetReverse(false)
+    self.cooldown:SetCooldown(self.item.cd_start, dur)
 end
 
-local function apply_swap_cd(self)
-    local item_id = self.item_id
-    if items_without_swap_cd[item_id] then
+local get_cd = function(self)
+    if not self.active then
+        return GetTime(), 30
+    end
+    local start, duration = GetInventoryItemCooldown("player", self.slotID)
+    return start, duration
+end
+
+local apply_swap_cd = function(self)
+    if self.no_swap_cd then
         return reset_frame(self)
     end
-    local start, duration
-    if items_with_active[item_id] then
-        start, duration = GetInventoryItemCooldown("player", self.slot_id)
-    end
-    start = start or GetTime()
-    duration = duration or 30
-    local trink = get_trinket(item_id)
-    trink.cd_start = start
-    trink.cd_finish = start + duration
-    apply_cd(self, trink, duration)
+    local start, duration = get_cd(self)
+    self.item.cd_start = start
+    self.item.cd_finish = start + duration
+    self:apply_cd(duration)
 end
 
-local function check_cd(slot_id)
-    local frame = FRAMES[slot_id]
-    if not frame then return end
-    if not items_with_active[frame.item_id] then return end
-    local trink = get_trinket(frame.item_id)
-    if trink.applied then return end
-    local start, duration = GetInventoryItemCooldown("player", slot_id)
+local check_cd = function(slotID)
+    local self = FRAMES[slotID]
+    if not self or not self.active then return end
+    if self.item.applied then return end
+    local start, duration = GetInventoryItemCooldown("player", slotID)
     if start == 0 then return end
-    trink.cd_start = start
-    trink.cd_finish = start + duration
-    apply_cd(frame, trink, duration)
+    self.item.cd_start = start
+    self.item.cd_finish = start + duration
+    self:apply_cd(duration)
 end
 
-local function trinket_buff_applied(self, duration, expirationTime)
-    local trink = TRINKETS_CACHE[self.item_id]
-    trink.ready = false
-    trink.applied = true
-    trink.on_cd = false
-    local cd_start = expirationTime - duration
-    trink.cd_start = cd_start
-    if trink.cd == 0 then
-        trink.cd_finish = expirationTime
-    else
-        trink.cd_finish = cd_start + trink.cd
-    end
-    self.tex:SetDesaturated(0)
-    self.trinkCooldown:SetReverse(true)
-    self.trinkCooldown:SetCooldown(cd_start, duration)
-    local other_slot_id = self.slot_id == 13 and 14 or 13
-    check_cd(other_slot_id)
-end
-
-local function trinket_buff_faded(self)
-    local trink = get_trinket(self.item_id)
-    if trink.cd ~= 0 and GetTime() < trink.cd_finish then
-        apply_cd(self, trink, trink.cd)
-    else
-        trink.ready = true
-        trink.applied = false
-        reset_frame(self)
-    end
-end
-
-local function check_hands()
-    if UnitBuff("player", hands) then
+local hands_applied
+local HANDS = GetSpellInfo(54758)
+local check_hands_buff = function()
+    if UnitBuff("player", HANDS) then
         if not hands_applied then
             hands_applied = true
             check_cd(13)
@@ -264,148 +122,206 @@ local function check_hands()
     end
 end
 
-local function check_if_trink_proc(self)
-    if check_hands() then return end
-
-    local trink = get_trinket(self.item_id)
-    if not trink or trink.on_cd or not trink.spell_id then return end
-    local buff_name = GetSpellInfo(trink.spell_id)
+local bbbuff = function(spellID)
+    local buff_name = GetSpellInfo(spellID)
     local stacks, _, duration, expirationTime = select(4, UnitBuff("player", buff_name))
-    if duration == 0 then
-        trink.applied = true
-        self.tex:SetDesaturated(0)
-        self.stacks_text:SetText(stacks)
-    elseif duration then
-        if trink.cd_finish == expirationTime
-        or trink.applied and stacks == 0 then return end
-        trinket_buff_applied(self, duration, expirationTime)
-        if stacks ~= 0 then
-            self.stacks_text:SetText(stacks)
+    return stacks, duration, expirationTime
+end
+
+local check_buff = function(itemID, spellID)
+    local stacks, duration, expirationTime
+    local buffs = multibuff[itemID]
+    if buffs then
+        for _, buffID in pairs(buffs) do
+            stacks, duration, expirationTime = bbbuff(buffID)
+            if duration then break end
         end
-    elseif trink.applied then
-        trinket_buff_faded(self)
+    elseif spellID then
+        stacks, duration, expirationTime = bbbuff(spellID)
+    end
+    return stacks, duration, expirationTime
+end
+
+local buff_applied = function(self, duration, expirationTime)
+    local item = self.item
+    item.ready = false
+    item.applied = true
+    item.on_cd = false
+    local cd_start = expirationTime - duration
+    item.cd_start = cd_start
+    item.cd_finish = self.no_swap_cd and expirationTime or cd_start + item.cd
+    self.texture:SetDesaturated(0)
+    self.cooldown:SetReverse(true)
+    self.cooldown:SetCooldown(cd_start, duration)
+    local other_slot_id = self.slotID == 13 and 14 or 13
+    check_cd(other_slot_id)
+end
+
+local buff_faded = function(self)
+    if self.no_swap_cd then
+        self.item.ready = true
+        self.item.applied = false
+        self:reset_frame()
+    elseif self.active then
+        local start, duration = GetInventoryItemCooldown("player", self.slotID)
+        self.item.cd = duration
+        self.item.cd_finish = start + duration
+        self:apply_cd(duration)
+    else
+        self:apply_cd(self.item.cd)
     end
 end
 
-local function update_frame(self)
-    local item_id = GetInventoryItemID("player", self.slot_id)
-    if not item_id then
-        self:Hide()
-        return
+local check_new_aura = function(self)
+    if check_hands_buff() then return end
+
+    local stacks, duration, expirationTime = check_buff(self.itemID, self.item.spellID)
+    if duration == 0 then
+        self.item.applied = true
+        self.texture:SetDesaturated(0)
+        self.stacksText:SetText(stacks)
+    elseif duration then
+        if self.item.cd_finish == expirationTime
+        or self.item.applied and stacks == 0 then return end
+
+        self:buff_applied(duration, expirationTime)
+        if stacks ~= 0 then
+            self.stacksText:SetText(stacks)
+        end
+    elseif self.item.applied then
+        self:buff_faded()
     end
-    local trink = get_trinket(item_id)
-    self.tex:SetTexture(trink.icon)
-    self.stacks_text:SetText(nil)
-    self.item_id = item_id
-    self.ilvl_text:SetText(trink.ilvl)
-    self.ilvl_text:SetTextColor(ITEM_QUALITY[trink.quality]())
+end
+
+local update_frame = function(self)
+    local itemID = GetInventoryItemID("player", self.slotID)
+    if not itemID then return self:Hide() end
+
+    local item = get_item(itemID)
+    local _, _, is_active = GetInventoryItemCooldown("player", self.slotID)
+    self.item = item
+    self.itemID = itemID
+    self.active = is_active == 1
+    self.no_swap_cd = item.cd == 0
+    self.texture:SetTexture(item.icon)
+    self.stacksText:SetText()
+    self.ilvl_text:SetText(item.ilvl)
+    self.ilvl_text:SetTextColor(unpack(ITEM_QUALITY[item.quality]))
     self:Show()
-    return trink
-end
-
-local function cd_more_than_30(trink)
-    return trink.on_cd and GetTime() + 30 < trink.cd_finish
 end
 
 local function OnEvent(self, event, arg1)
     if self.first_check then
         self.first_check = false
-        update_frame(self)
+        self:update_frame()
         if event == "PLAYER_ALIVE" then
-            apply_swap_cd(self)
+            self:apply_swap_cd()
         end
+    elseif arg1 == "player" and event == "UNIT_AURA" then
+        self:check_new_aura()
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
-        if self.slot_id ~= arg1 then return end
-        local trink = update_frame(self)
-        if not trink then return end
-        if cd_more_than_30(trink) then
-            apply_cd(self, trink, trink.cd)
+        if self.slotID ~= arg1 then return end
+        self:update_frame()
+        if self.item.on_cd and GetTime() + 30 < self.item.cd_finish then
+            self:apply_cd(self.item.cd)
         else
-            apply_swap_cd(self)
+            self:apply_swap_cd()
         end
-    elseif event == "UNIT_AURA" then
-        if arg1 ~= "player" then return end
-        check_if_trink_proc(self)
     end
 end
 
-local function check_if_ready(self)
-    local trink = TRINKETS_CACHE[self.item_id]
-    if not trink
-    or not trink.on_cd
-    or GetTime() < trink.cd_finish
-    then return end
-    trink.ready = true
-    trink.applied = false
-    trink.on_cd = false
-    self.tex:SetDesaturated(0)
+local function OnUpdate(self)
+    local item = self.item
+    if item and item.on_cd and GetTime() > item.cd_finish then
+        item.ready = true
+        item.applied = false
+        item.on_cd = false
+        self.texture:SetDesaturated(0)
+    end
 end
 
-local function swap_trinkets_slots(self)
-    if UnitAffectingCombat("player") then return end
+local function OnMouseDown(self, button)
+    if UnitAffectingCombat("player") then
+        print('Leave combat to swap trinkets')
+        return
+    end
+    if button ~= "LeftButton" then return end
     -- shift+left mouse swaps trinkets
     if IsShiftKeyDown() then
-        local slot_id = self.slot_id ~= 13 and 13 or 14
-        EquipItemByName(self.item_id, slot_id)
-    -- alt+left mouse swaps trinkets with same name line pnl
+        local slotID = self.slotID ~= 13 and 13 or 14
+        EquipItemByName(self.itemID, slotID)
+    -- alt+left mouse swaps trinkets with same name: pnl 277 <-> 264
     elseif IsAltKeyDown() then
-        local item_name = GetItemInfo(self.item_id)
-        EquipItemByName(item_name, self.slot_id)
+        local item_name = GetItemInfo(self.itemID)
+        EquipItemByName(item_name, self.slotID)
     end
 end
 
-local function create_new_frame(slot_id)
-    local new_frame = CreateFrame("Frame")
-    new_frame:SetSize(ICON_SIZE, ICON_SIZE)
-    local x = slot_id == 13 and POS_X or POS_X + 35 + POS_MARGIN
-    new_frame:SetPoint("CENTER", x, POS_Y)
+local function add_text(self)
+    self.itemText = CreateFrame("Frame", nil, self)
+    self.itemText:SetAllPoints()
 
-    new_frame.slot_id = slot_id
-    new_frame.first_check = true
+    self.stacksText = self.itemText:CreateFontString(nil, "OVERLAY")
+    self.stacksText:SetFont("Fonts/FRIZQT__.ttf", floor(ICON_SIZE/2), "OUTLINE")
+    self.stacksText:SetPoint("TOP", self, "TOP", 0, floor(ICON_SIZE/3))
 
-    new_frame:RegisterEvent("PLAYER_ALIVE")
-    new_frame:RegisterEvent("LFG_LOCK_INFO_RECEIVED")
-    new_frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-    new_frame:RegisterEvent("UNIT_AURA")
-    new_frame:SetScript("OnEvent", OnEvent)
+    self.ilvl_text = self.itemText:CreateFontString(nil, "OVERLAY")
+    self.ilvl_text:SetFont("Fonts/FRIZQT__.ttf", 8, "OUTLINE")
+    self.ilvl_text:SetPoint("BOTTOMLEFT")
+end
 
-    new_frame:SetScript("OnUpdate", check_if_ready)
+local function create_new_item(slotID)
+    local x, y, size = unpack(COORDS[slotID])
+    local self = CreateFrame("Frame", "Trinket"..slotID)
+    self:SetSize(size, size)
+    self:SetPoint("CENTER", x, y)
 
-    new_frame:EnableMouse(true)
-    new_frame:SetScript("OnMouseDown", swap_trinkets_slots)
+    local mooz = 1 - ZOOM
+    self.texture = self:CreateTexture(nil, "OVERLAY")
+    self.texture:SetAllPoints()
+    self.texture:SetTexture("Interface/Icons/Trade_Engineering")
+    self.texture:SetTexCoord(ZOOM, ZOOM, ZOOM, mooz, mooz, ZOOM, mooz, mooz)
 
-    local zoom = 0.1
-    local mooz = 1 - zoom
-    new_frame.tex = new_frame:CreateTexture(nil, "BACKGROUND")
-    new_frame.tex:SetAllPoints(new_frame)
-    new_frame.tex:SetTexture("Interface/Icons/Trade_Engineering")
-    new_frame.tex:SetTexCoord(zoom, zoom, zoom, mooz, mooz, zoom, mooz, mooz)
+    self.cooldown = CreateFrame("Cooldown", "Trinket"..slotID.."Cooldown", self, "CooldownFrameTemplate")
+    self.cooldown:SetAllPoints()
 
-    new_frame.trinkCooldown = CreateFrame("Cooldown", "trinkCooldown", new_frame, "CooldownFrameTemplate")
-    new_frame.trinkCooldown:SetAllPoints()
-
-    local margin = 4
-    new_frame.border = CreateFrame("Frame", nil, new_frame)
-    new_frame.border:SetPoint("TOPLEFT", new_frame, -margin, margin)
-    new_frame.border:SetPoint("BOTTOMRIGHT", new_frame, margin, -margin)
-    new_frame.border:SetFrameStrata("LOW")
-    new_frame.border:SetBackdrop({
+    local margin = (size/8-size%1)
+    self.border = CreateFrame("Frame", nil, self)
+    self.border:SetPoint("TOPLEFT", self, -margin, margin)
+    self.border:SetPoint("BOTTOMRIGHT", self, margin, -margin)
+    self.border:SetFrameStrata("MEDIUM")
+    self.border:SetBackdrop({
         edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
         tile = true,
-        edgeSize = 16,
+        edgeSize = size/2,
     })
-    new_frame.border:SetBackdropBorderColor(0,0,0,1)
+    self.border:SetBackdropBorderColor(0,0,0,1)
 
-    new_frame.stacks_text = new_frame:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-    new_frame.stacks_text:SetFont("Fonts/FRIZQT__.ttf", 14, "OUTLINE")
-    new_frame.stacks_text:SetPoint("CENTER", 0, 18)
+    self.slotID = slotID
+    self.first_check = true
+    self.apply_cd = apply_cd
+    self.apply_swap_cd = apply_swap_cd
+    self.reset_frame = reset_frame
+    self.update_frame = update_frame
+    self.check_new_aura = check_new_aura
+    self.buff_faded = buff_faded
+    self.buff_applied = buff_applied
+    self.get_cd = get_cd
 
-    new_frame.ilvl_text = new_frame:CreateFontString(nil, "OVERLAY")
-    new_frame.ilvl_text:SetFont("Fonts/FRIZQT__.ttf", 8, "OUTLINE")
-    new_frame.ilvl_text:SetPoint("CENTER", 7, -10)
+    self:RegisterEvent("PLAYER_ALIVE")
+    self:RegisterEvent("LFG_LOCK_INFO_RECEIVED")
+    self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    self:RegisterEvent("UNIT_AURA")
+    self:SetScript("OnEvent", OnEvent)
+    self:SetScript("OnUpdate", OnUpdate)
+    self:SetScript("OnMouseDown", OnMouseDown)
+    self:EnableMouse(true)
 
-    return new_frame
+    return self
 end
--- /run local x = GetInventoryItemLink('player', 15) local w = x:match("%d:(%d+)") print(w)
-FRAMES[13] = create_new_frame(13)
-FRAMES[14] = create_new_frame(14)
+
+for i=13,14 do
+    local f = create_new_item(i)
+    add_text(f)
+    FRAMES[i] = f
+end
