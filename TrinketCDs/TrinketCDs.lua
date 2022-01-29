@@ -128,16 +128,16 @@ local bbbuff = function(spellID)
     return stacks, duration, expirationTime
 end
 
-local check_buff = function(itemID, spellID)
+local check_buff = function(self)
     local stacks, duration, expirationTime
-    local buffs = multibuff[itemID]
+    local buffs = multibuff[self.itemID]
     if buffs then
         for _, buffID in pairs(buffs) do
             stacks, duration, expirationTime = bbbuff(buffID)
             if duration then break end
         end
-    elseif spellID then
-        stacks, duration, expirationTime = bbbuff(spellID)
+    elseif self.item.spellID then
+        stacks, duration, expirationTime = bbbuff(self.item.spellID)
     end
     return stacks, duration, expirationTime
 end
@@ -175,7 +175,7 @@ end
 local check_new_aura = function(self)
     if check_hands_buff() then return end
 
-    local stacks, duration, expirationTime = check_buff(self.itemID, self.item.spellID)
+    local stacks, duration, expirationTime = check_buff(self)
     if duration == 0 then
         self.item.applied = true
         self.texture:SetDesaturated(0)
@@ -219,6 +219,8 @@ local function OnEvent(self, event, arg1)
         end
     elseif arg1 == "player" and event == "UNIT_AURA" then
         self:check_new_aura()
+    elseif event == "BAG_UPDATE_COOLDOWN" then
+        check_cd(self.slotID)
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
         if self.slotID ~= arg1 then return end
         self:update_frame()
@@ -311,6 +313,7 @@ local function create_new_item(slotID)
     self:RegisterEvent("PLAYER_ALIVE")
     self:RegisterEvent("LFG_LOCK_INFO_RECEIVED")
     self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    self:RegisterEvent("BAG_UPDATE_COOLDOWN")
     self:RegisterEvent("UNIT_AURA")
     self:SetScript("OnEvent", OnEvent)
     self:SetScript("OnUpdate", OnUpdate)
