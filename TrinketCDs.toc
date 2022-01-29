@@ -1,6 +1,7 @@
 ## Interface: 30300
 ## Title:|cffee0080TrinketCDs|r
 ## Author: Ridepad
-## Version: 1.0
+## Version: 1.1
 
+TrinketsDB.lua
 TrinketCDs.lua
