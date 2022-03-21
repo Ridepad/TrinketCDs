@@ -1,8 +1,20 @@
-local POS_X = 125
-local POS_Y = -155
-local ICON_SIZE = 28
-local POS_MARGIN = 7
-local ZOOM = 0.1
+local SETTINGS = {
+    POS_X = 123,
+    POS_Y = -155,
+    ICON_SIZE = 40,
+    SPACING = 2,
+    ZOOM = 0,
+    BORDER_MARGIN = 0,
+    EDGE_SIZE = 10,
+    TRINKET13 = true,
+    TRINKET14 = true,
+}
+
+local ADDON_NAME = "TrinketCDs"
+-- local FONT = "Fonts/FRIZQT__.ttf"
+local FONT = "Interface\\Addons\\TrinketCDs\\Media\\Emblem.ttf"
+-- local BORDER_TEXTURE = "Interface/Tooltips/UI-Tooltip-Border"
+local BORDER_TEXTURE = "Interface\\Addons\\TrinketCDs\\Media\\BigBorder.blp"
 
 local FRAMES = {}
 local ITEMS_CACHE = {}
@@ -15,14 +27,43 @@ local ITEM_QUALITY = {
 }
 local COORDS = {
     [13] = {
-        POS_X,
-        POS_Y,
-        ICON_SIZE
+        x = function() return SETTINGS.POS_X end,
+        y = function() return SETTINGS.POS_Y end,
     },
     [14] = {
-        POS_X + ICON_SIZE + POS_MARGIN,
-        POS_Y,
-        ICON_SIZE
+        x = function() return SETTINGS.POS_X + SETTINGS.ICON_SIZE + SETTINGS.SPACING end,
+        y = function() return SETTINGS.POS_Y end,
+    },
+}
+local SLIDERS_ORDER = {"ICON_SIZE", "POS_X", "POS_Y", "SPACING", "ZOOM", "BORDER_MARGIN", "EDGE_SIZE"}
+local SLIDERS = {
+    ICON_SIZE = {
+        label = "Change icon size",
+        min = 20, max = 50,
+    },
+    POS_X = {
+        label = "Change icon X",
+        min = -2000, max = 2000,
+    },
+    POS_Y = {
+        label = "Change icon Y",
+        min = -2000, max = 2000,
+    },
+    SPACING = {
+        label = "Change icon spacing",
+        min = 0, max = 20,
+    },
+    ZOOM = {
+        label = "Change icon zoom",
+        min = -200, max = 200, step = 5,
+    },
+    BORDER_MARGIN = {
+        label = "Change border margin",
+        min = -5, max = 5,
+    },
+    EDGE_SIZE = {
+        label = "Change border edge",
+        min = 1, max = 20,
     },
 }
 
@@ -35,13 +76,14 @@ SLASH_RIDEPAD_TRINKETS1 = "/tcdp"
 SlashCmdList["RIDEPAD_TRINKETS"] = function()
     UpdateAddOnCPUUsage()
     local msg = "[TrinketCDs] Total seconds in addon:"
-    msg = string.format("%s\n%.3f", msg, GetAddOnCPUUsage("TrinketCDs") / 1000)
+    msg = string.format("%s\n%.3f", msg, GetAddOnCPUUsage(ADDON_NAME) / 1000)
     for _, frame in pairs(FRAMES) do
         local t, c = GetFrameCPUUsage(frame)
         msg = string.format("%s\n%.3f %d", msg, t / 1000, c)
     end
     print(msg)
 end
+
 
 local get_item = function(itemID)
     local item = ITEMS_CACHE[itemID]
@@ -207,7 +249,9 @@ local update_frame = function(self)
     self.stacksText:SetText()
     self.ilvl_text:SetText(item.ilvl)
     self.ilvl_text:SetTextColor(unpack(ITEM_QUALITY[item.quality]))
-    self:Show()
+    if SETTINGS[self.nameID] then
+        self:Show()
+    end
 end
 
 local function OnEvent(self, event, arg1)
@@ -264,42 +308,57 @@ local function add_text(self)
     self.itemText:SetAllPoints()
 
     self.stacksText = self.itemText:CreateFontString(nil, "OVERLAY")
-    self.stacksText:SetFont("Fonts/FRIZQT__.ttf", floor(ICON_SIZE/2), "OUTLINE")
-    self.stacksText:SetPoint("TOP", self, "TOP", 0, floor(ICON_SIZE/3))
+    self.stacksText:SetPoint("TOP", 0, floor(SETTINGS.ICON_SIZE/3))
+	self.stacksText:SetShadowColor(0, 0, 0, 1)
+	self.stacksText:SetShadowOffset(1, -1)
+    self.stacksText:SetWidth(SETTINGS.ICON_SIZE)
+	self.stacksText:SetJustifyH("CENTER")
 
     self.ilvl_text = self.itemText:CreateFontString(nil, "OVERLAY")
-    self.ilvl_text:SetFont("Fonts/FRIZQT__.ttf", 8, "OUTLINE")
-    self.ilvl_text:SetPoint("BOTTOMLEFT")
+    self.ilvl_text:SetPoint("BOTTOMRIGHT", 0, 2)
+	self.ilvl_text:SetShadowColor(0, 0, 0, 1)
+	self.ilvl_text:SetShadowOffset(1, -1)
+end
+
+local redraw = function(self)
+    self:SetSize(SETTINGS.ICON_SIZE, SETTINGS.ICON_SIZE)
+
+    local pos = COORDS[self.slotID]
+    self:SetPoint("CENTER", pos.x(), pos.y())
+
+    local zoom = SETTINGS.ZOOM / 100
+    local mooz = 1 - zoom
+    self.texture:SetTexCoord(zoom, zoom, zoom, mooz, mooz, zoom, mooz, mooz)
+
+    local border_margin = SETTINGS.BORDER_MARGIN
+    self.border:SetPoint("TOPLEFT", self, -border_margin, border_margin)
+    self.border:SetPoint("BOTTOMRIGHT", self, border_margin, -border_margin)
+    self.border:SetBackdrop({
+        edgeFile = BORDER_TEXTURE,
+        tile = true,
+        edgeSize = SETTINGS.EDGE_SIZE,
+    })
+    self.border:SetBackdropBorderColor(0, 0, 0, 1)
+
+    self.stacksText:SetFont(FONT, floor(SETTINGS.ICON_SIZE/2), "OUTLINE")
+    self.ilvl_text:SetFont(FONT, floor(SETTINGS.ICON_SIZE/4), "OUTLINE")
 end
 
 local function create_new_item(slotID)
-    local x, y, size = unpack(COORDS[slotID])
-    local self = CreateFrame("Frame", "Trinket"..slotID)
-    self:SetSize(size, size)
-    self:SetPoint("CENTER", x, y)
+    local self = CreateFrame("Frame", ADDON_NAME..slotID)
 
-    local mooz = 1 - ZOOM
     self.texture = self:CreateTexture(nil, "OVERLAY")
     self.texture:SetAllPoints()
     self.texture:SetTexture("Interface/Icons/Trade_Engineering")
-    self.texture:SetTexCoord(ZOOM, ZOOM, ZOOM, mooz, mooz, ZOOM, mooz, mooz)
 
     self.cooldown = CreateFrame("Cooldown", "Trinket"..slotID.."Cooldown", self, "CooldownFrameTemplate")
     self.cooldown:SetAllPoints()
 
-    local margin = (size/8-size%1)
     self.border = CreateFrame("Frame", nil, self)
-    self.border:SetPoint("TOPLEFT", self, -margin, margin)
-    self.border:SetPoint("BOTTOMRIGHT", self, margin, -margin)
     self.border:SetFrameStrata("MEDIUM")
-    self.border:SetBackdrop({
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-        tile = true,
-        edgeSize = size/2,
-    })
-    self.border:SetBackdropBorderColor(0,0,0,1)
 
     self.slotID = slotID
+    self.nameID = "TRINKET"..slotID
     self.first_check = true
     self.apply_cd = apply_cd
     self.apply_swap_cd = apply_swap_cd
@@ -320,11 +379,146 @@ local function create_new_item(slotID)
     self:SetScript("OnMouseDown", OnMouseDown)
     self:EnableMouse(true)
 
+    add_text(self)
+    redraw(self)
+
+    if not SETTINGS[self.nameID] then
+        self:Hide()
+    end
+
     return self
 end
 
-for i=13,14 do
-    local f = create_new_item(i)
-    add_text(f)
-    FRAMES[i] = f
+
+local redraw_all = function()
+    for _, frame in pairs(FRAMES) do
+        redraw(frame)
+    end
+end
+
+local mainFrame = CreateFrame("Frame")
+
+function mainFrame:OnEvent(event, addOnName)
+	if addOnName == ADDON_NAME then
+        local t = _G.TrinketCDsProfile or {}
+        for key, _ in pairs(SETTINGS) do
+            SETTINGS[key] = t[key]
+        end
+        _G.TrinketCDsProfile = SETTINGS
+
+        FRAMES[13] = create_new_item(13)
+        FRAMES[14] = create_new_item(14)
+		self:SetupOptions()
+	end
+end
+
+mainFrame:RegisterEvent("ADDON_LOADED")
+mainFrame:SetScript("OnEvent", mainFrame.OnEvent)
+
+local toggleTrinket = function(self)
+    local itemFrame = FRAMES[self.id]
+    local checked = self:GetChecked()
+    SETTINGS[itemFrame.nameID] = checked
+    if checked then
+        itemFrame:Show()
+    else
+        itemFrame:Hide()
+    end
+end
+
+local newCheckBox = function(self, id)
+    local name = "TrinketCDsCheckBox" .. id
+    local cb = CreateFrame("CheckButton", name, self.childFrame, "InterfaceOptionsCheckButtonTemplate")
+    cb:SetChecked(SETTINGS["TRINKET"..id])
+    cb.text = _G[name.."Text"]
+    cb.text:SetText("Toggle trinket "..id)
+    cb.id = 13
+    return cb
+end
+
+local newSlider = function(self, value_name)
+    local id = "TrinketCDsSlider"..value_name
+    local slider = CreateFrame("Slider", id, self.childFrame, "OptionsSliderTemplate")
+
+    slider:SetSize(200, 15)
+
+    slider.InfoText = slider:CreateFontString("ARTWORK", nil, "GameFontNormal")
+    slider.InfoText:SetPoint("TOP", slider, 0, 20)
+    slider.InfoText:SetSize(200, 20)
+	slider.InfoText:SetJustifyH("CENTER")
+
+    slider.EditBox = CreateFrame("EditBox", id.."EditBox", slider, "InputBoxTemplate")
+	slider.EditBox:SetPoint("LEFT", slider, "RIGHT", 10, 0)
+	slider.EditBox:SetSize(50, 20)
+    slider.EditBox:SetMaxLetters(5)
+    slider.EditBox:SetJustifyH("RIGHT")
+    slider.EditBox:SetMultiLine(false)
+    slider.EditBox:SetAutoFocus(false)
+    slider.EditBox:ClearFocus()
+    slider.EditBox:SetText(SETTINGS[value_name])
+
+    slider:SetScript("OnValueChanged", function(f, value)
+        SETTINGS[value_name] = value
+        redraw_all()
+        f.EditBox:SetText(value)
+    end)
+
+    slider.EditBox:SetScript("OnEscapePressed", function(f)
+        f:ClearFocus()
+    end)
+
+    slider.EditBox:SetScript("OnEnterPressed", function(f)
+        local value = f:GetText()
+        if tonumber(value) then
+            slider:SetValue(value)
+            f:ClearFocus()
+        else
+            f:SetText(SETTINGS[value_name])
+        end
+    end)
+
+    return slider
+end
+
+function mainFrame:SetupOptions()
+    self.panel = CreateFrame("Frame")
+    self.panel.name = ADDON_NAME
+
+    self.childFrame = CreateFrame("Frame", nil, self.panel)
+    self.childFrame:SetPoint("TOPLEFT", 15, -15)
+    self.childFrame:SetPoint("BOTTOMRIGHT", -15, 15)
+    self.childFrame:Hide()
+
+    self.panel:SetScript("OnShow", function()
+        self.childFrame:Show()
+    end)
+    self.panel:SetScript("OnHide", function()
+        self.childFrame:Hide()
+    end)
+
+    local title = self.childFrame:CreateFontString("ARTWORK", nil, "GameFontNormalLarge")
+	title:SetPoint("TOPLEFT", self.childFrame)
+    title:SetText(ADDON_NAME)
+
+	local t13toggle = newCheckBox(self, 13)
+	t13toggle:SetPoint("TOPLEFT", 0, -30)
+    t13toggle.text:SetText("Toggle trinket 13")
+    t13toggle:SetScript("OnClick", toggleTrinket)
+
+	local t14toggle = newCheckBox(self, 14)
+	t14toggle:SetPoint("TOPLEFT", 0, -60)
+    t14toggle.text:SetText("Toggle trinket 14")
+    t14toggle:SetScript("OnClick", toggleTrinket)
+
+    for row, key in pairs(SLIDERS_ORDER) do
+        local data = SLIDERS[key]
+        local slider = newSlider(self, key)
+        slider:SetPoint("TOPLEFT", 0, -100 - row * 35)
+        slider:SetMinMaxValues(data.min, data.max)
+        slider:SetValue(SETTINGS[key])
+        slider:SetValueStep(data.step or 1)
+        slider.InfoText:SetText(data.label)
+    end
+
+	InterfaceOptions_AddCategory(self.panel)
 end
