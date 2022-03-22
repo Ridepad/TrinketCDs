@@ -2,6 +2,8 @@ local TrinketsData = {}
 _G.TrinketsData = TrinketsData
 
 local trinket_CDs = {}
+TrinketsData.trinket_CDs = trinket_CDs
+
 local _CDs = {
     [0] = {
         47059, 47041, -- Solace of the Defeated
@@ -34,7 +36,6 @@ for cd_duration, IDs in pairs(_CDs) do
         trinket_CDs[item_id] = cd_duration
     end
 end
-TrinketsData.trinket_CDs = trinket_CDs
 
 TrinketsData.trinket_buffs = {
     [54588] = 75473, -- Charred Twilight Scale
