@@ -14,3 +14,5 @@
 - [Download](https://github.com/Ridepad/TrinketCDs/releases/latest)
 - Extract folder into WOW/Interface/Addons/ folder
 - Use OmniCC for text duration
+- Check in game options for settings:
+ ![](https://github.com/Ridepad/TrinketCDs/blob/main/showcase-options.png)
