@@ -7,10 +7,12 @@
  - Buff duration, stacks, cooldown
  - Cooldown on login and after inventory change
  - Caches cooldown even if trinket was unequiped after proc
+# Alt-click:
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase-swap-alt.gif)
- - Alt click to swap for same name trinket with different ilvl
+- Swaps for same name trinket with different ilvl
+# Shift-click:
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase-swap-shift.gif)
- - Shift click to swap trinkets places for 30 second cooldown
+-  Swaps trinkets places for 30 second cooldown
 
 # Install
 - [Download](https://github.com/Ridepad/TrinketCDs/releases/latest)
