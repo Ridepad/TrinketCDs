@@ -1,8 +1,9 @@
 ## Interface: 30300
 ## Title:|cffee0080TrinketCDs|r
 ## Author: Ridepad
-## Version: 1.2
+## Version: 1.2.2
 ## SavedVariables: TrinketCDsProfile
 
-TrinketsDB.lua
+TrinketCDsDB.lua
 TrinketCDs.lua
+TrinketCDsOptions.lua

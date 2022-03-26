@@ -1,43 +1,43 @@
-local TrinketsData = {}
-_G.TrinketsData = TrinketsData
+local DB = {}
+_G.TrinketCDsDB = DB
 
 local trinket_CDs = {}
-TrinketsData.trinket_CDs = trinket_CDs
+DB.trinket_CDs = trinket_CDs
 
 local _CDs = {
     [0] = {
-        47059, 47041, -- Solace of the Defeated
-        47432, 47271, -- Solace of the Fallen
-        47188, 47182, -- Reign of the Unliving
-        47477, 47316, -- Reign of the Dead
-        50345, 50340, -- Muradin's Spyglass
-        50706, 50351, -- Tiny Abomination in a Jar
-        50344, 50341, -- Unidentifiable Organ
-        37111,        -- Soul Preserver
-        40430,        -- Majestic Dragon Figurine
-        40431,        -- Fury of the Five Flights
-        40432,        -- Illustration of the Dragon Soul
-        42989,        -- Darkmoon Card: Berserker!
-        45308,        -- Eye of the Broodmother
-        50355,        -- Herkuml War Token
+        47059,  47041, -- Solace of the Defeated
+        47432,  47271, -- Solace of the Fallen
+        47188,  47182, -- Reign of the Unliving
+        47477,  47316, -- Reign of the Dead
+        50345,  50340, -- Muradin's Spyglass
+        50706,  50351, -- Tiny Abomination in a Jar
+        50344,  50341, -- Unidentifiable Organ
+                37111, -- Soul Preserver
+                40430, -- Majestic Dragon Figurine
+                40431, -- Fury of the Five Flights
+                40432, -- Illustration of the Dragon Soul
+                42989, -- Darkmoon Card: Berserker!
+                45308, -- Eye of the Broodmother
+                50355, -- Herkuml War Token
     },
     [50] = {
-        54588, 54572, -- Charred Twilight Scale
+        54588,  54572, -- Charred Twilight Scale
     },
     [100] = {
-        50365, 50360, -- Phylactery of the Nameless Lich
+        50365,  50360, -- Phylactery of the Nameless Lich
     },
     [105] = {
-        50363, 50362, -- Deathbringer's Will
+        50363,  50362, -- Deathbringer's Will
     },
 }
-for cd_duration, IDs in pairs(_CDs) do
-    for _, item_id in ipairs(IDs) do
-        trinket_CDs[item_id] = cd_duration
+for cd_duration, itemIDs in pairs(_CDs) do
+    for _, itemID in ipairs(itemIDs) do
+        trinket_CDs[itemID] = cd_duration
     end
 end
 
-TrinketsData.trinket_buffs = {
+DB.trinket_buffs = {
     [54588] = 75473, -- Charred Twilight Scale
     [54572] = 75466,
     [54590] = 75456, -- Sharpened Twilight Scale
@@ -218,7 +218,7 @@ TrinketsData.trinket_buffs = {
     [43836] = 61620, -- Thorny Rose Brooch
 }
 
-TrinketsData.multibuff = {
+DB.multibuff = {
     [50363] =  { -- Deathbringer's Will hm
         71556, -- agility
         71557, -- arp
@@ -253,21 +253,21 @@ TrinketsData.multibuff = {
     },
 }
 
-TrinketsData.ashen_rings = {
+DB.ashen_rings = {
     [50397] = 72416, -- SP DD
     [50398] = 72416,
     [50399] = 72418, -- SP Heal
     [50400] = 72418,
     [50401] = 72412, -- ATK AGI
     [50402] = 72412,
-    [52571] = 72412, -- ATK STR
-    [52572] = 72412,
     [50403] = 72414, -- TANK
     [50404] = 72414,
+    [52571] = 72412, -- ATK STR
+    [52572] = 72412,
 }
 
-TrinketsData.cloaks = {
+DB.cloaks = {
     ["3722"] = 55637, -- Lightweave
-    ["3730"] = 55775, -- Swordguard
     ["3728"] = 55767, -- Darkglow
+    ["3730"] = 55775, -- Swordguard
 }

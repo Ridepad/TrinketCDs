@@ -1,3 +1,9 @@
+local ADDON_NAME = "TrinketCDs"
+local DB = _G.TrinketCDsDB
+local TRINKET_CD = DB.trinket_CDs
+local TRINKET_BUFFS = DB.trinket_buffs
+local MULTIBUFF = DB.multibuff
+local FRAMES = {}
 local SETTINGS = {
     POS_X = 123,
     POS_Y = -155,
@@ -10,14 +16,15 @@ local SETTINGS = {
     TRINKET14 = true,
 }
 
-local ADDON_NAME = "TrinketCDs"
-local ADDON_NAME_COLOR = "|cFFFFFF00[TrinketCDs]|r: "
--- local FONT = "Fonts/FRIZQT__.ttf"
-local FONT = "Interface\\Addons\\TrinketCDs\\Media\\Emblem.ttf"
--- local BORDER_TEXTURE = "Interface/Tooltips/UI-Tooltip-Border"
-local BORDER_TEXTURE = "Interface\\Addons\\TrinketCDs\\Media\\BigBorder.blp"
+local ADDON = CreateFrame("Frame")
+_G[ADDON_NAME] = ADDON
+ADDON['SETTINGS'] = SETTINGS
+ADDON['FRAMES'] = FRAMES
 
-local FRAMES = {}
+local ADDON_NAME_COLOR = format("|cFFFFFF00[%s]|r: ", ADDON_NAME)
+local FONT = format("Interface\\Addons\\%s\\Media\\Emblem.ttf", ADDON_NAME)
+local BORDER_TEXTURE = format("Interface\\Addons\\%s\\Media\\BigBorder.blp", ADDON_NAME)
+
 local ITEMS_CACHE = {}
 local ITEM_QUALITY = {
     [1] = {1.00, 1.00, 1.00},
@@ -36,42 +43,7 @@ local COORDS = {
         y = function() return SETTINGS.POS_Y end,
     },
 }
-local SLIDERS_ORDER = {"ICON_SIZE", "POS_X", "POS_Y", "SPACING", "ZOOM", "BORDER_MARGIN", "EDGE_SIZE"}
-local SLIDERS = {
-    ICON_SIZE = {
-        label = "Change icon size",
-        min = 20, max = 50,
-    },
-    POS_X = {
-        label = "Change icon X",
-        min = -2000, max = 2000,
-    },
-    POS_Y = {
-        label = "Change icon Y",
-        min = -2000, max = 2000,
-    },
-    SPACING = {
-        label = "Change icon spacing",
-        min = 0, max = 20,
-    },
-    ZOOM = {
-        label = "Change icon zoom",
-        min = -200, max = 200, step = 5,
-    },
-    BORDER_MARGIN = {
-        label = "Change border margin",
-        min = -5, max = 5,
-    },
-    EDGE_SIZE = {
-        label = "Change border edge",
-        min = 1, max = 20,
-    },
-}
 
-local TrinketsData = _G.TrinketsData
-local TRINKET_CD = TrinketsData.trinket_CDs
-local TRINKET_BUFFS = TrinketsData.trinket_buffs
-local MULTIPROC = TrinketsData.multibuff
 
 SLASH_RIDEPAD_TRINKETS1 = "/tcdp"
 SlashCmdList["RIDEPAD_TRINKETS"] = function()
@@ -85,205 +57,184 @@ SlashCmdList["RIDEPAD_TRINKETS"] = function()
     print(msg)
 end
 
-
-local get_item = function(itemID)
-    local item = ITEMS_CACHE[itemID]
-    if item then return item end
-
-    local _, _, itemQuality, itemLevel, _, _, _, _, _, texture = GetItemInfo(itemID)
-    item = {
-        ready = true,
-        icon = texture,
-        ilvl = itemLevel,
-        quality = itemQuality,
-        spellID = TRINKET_BUFFS[itemID],
-        cd = TRINKET_CD[itemID] or 45,
-        cd_finish = 0,
-    }
-    ITEMS_CACHE[itemID] = item
-    return item
-end
-
-local update_frame = function(self)
-    local itemID = GetInventoryItemID("player", self.slotID)
-    if not itemID then return self:Hide() end
-
-    local item = get_item(itemID)
-    local start, duration, is_active = GetInventoryItemCooldown("player", self.slotID)
-    if duration > 0 then
-        item.on_cd = true
-        item.cd_start = start
-        item.cd_finish = start + duration
-    end
-    self.item = item
-    self.itemID = itemID
-    self.active = is_active == 1
-    self.no_swap_cd = item.cd == 0
-    self.texture:SetTexture(item.icon)
-    self.stacksText:SetText()
-    self.ilvl_text:SetText(item.ilvl)
-    self.ilvl_text:SetTextColor(unpack(ITEM_QUALITY[item.quality]))
-    if SETTINGS[self.nameID] then
-        self:Show()
-    end
-end
-
-local reset_frame = function(self)
-    self.item.ready = true
-    self.item.applied = false
-    self.item.on_cd = false
+local ResetFrame = function(self)
     self.stacksText:SetText()
     self.texture:SetDesaturated(0)
     self.cooldown:SetReverse(false)
     self.cooldown:SetCooldown(0, 0)
 end
 
-local apply_cd = function(self, dur)
-    self.item.ready = false
-    self.item.applied = false
-    self.item.on_cd = true
+local ApplyItemCD = function(self, dur)
+    dur = dur or self.item.CD
     self.stacksText:SetText()
     self.texture:SetDesaturated(1)
     self.cooldown:SetReverse(false)
     self.cooldown:SetCooldown(self.item.cd_start, dur)
 end
 
-local cd_after_swap_or_login = function(self)
+local newItem = function(itemID)
+    local _, _, itemQuality, itemLevel, _, _, _, _, _, texture = GetItemInfo(itemID)
+    local buffID = TRINKET_BUFFS[itemID]
+    local buffIDs = MULTIBUFF[itemID]
+    local procInDB = (buffID or buffIDs) and true
+    local itemCD = procInDB and (TRINKET_CD[itemID] or 45)
+    local item = {
+        ID = itemID,
+        CD = itemCD,
+        icon = texture,
+        ilvl = itemLevel,
+        quality = itemQuality,
+        spellID = buffID,
+        spellIDs = buffIDs,
+        procInDB = procInDB,
+    }
+    ITEMS_CACHE[itemID] = item
+    return item
+end
+
+local CheckItemUsed = function(self)
+    if not self.usable then return end
+    local cdStart, cdDur = GetInventoryItemCooldown("player", self.slotID)
+    if cdDur == 0 then return end
+    if cdDur > 30 then
+        self.item.CD = cdDur
+    end
+    self.item.cd_start = cdStart
+    self.item.cd_end = cdStart + cdDur
+    if not self.item.applied then
+        self:ApplyItemCD(cdDur)
+    end
+end
+
+local function OnUpdate(self)
+    if self.item.cd_end and GetTime() > self.item.cd_end then
+        self.item.applied = false
+        self.texture:SetDesaturated(0)
+    end
+end
+
+local UpdateFrame = function(self)
+    local itemID = GetInventoryItemID("player", self.slotID)
+    if not itemID then return self:Hide() end
+
+    local item = ITEMS_CACHE[itemID] or newItem(itemID)
+    self.item = item
+    self:ResetFrame()
+    self.no_swap_cd = item.CD == 0
     if self.no_swap_cd then
-        return self:reset_frame()
+        self:SetScript("OnUpdate", nil)
+    else
+        self:SetScript("OnUpdate", OnUpdate)
     end
-    local start, duration, active = GetInventoryItemCooldown("player", self.slotID)
-    if active == 0 then
-        start, duration = GetTime(), 30
-    end
-    self.item.cd_start = start
-    self.item.cd_finish = start + duration
-    self:apply_cd(duration)
-end
 
-local item_used_cd = function(self)
-    if not self.active then return end
-    local start, duration = GetInventoryItemCooldown("player", self.slotID)
-    if duration == 0 then return end
-    if duration > 30 then
-        self.item.cd = duration
-    end
-    self.item.cd_start = start
-    self.item.cd_finish = start + duration
-    if self.item.applied then return end
-    self:apply_cd(duration)
-end
+    self.stacksText:SetText()
+    self.texture:SetTexture(item.icon)
+    self.ilvl_text:SetText(item.ilvl)
+    self.ilvl_text:SetTextColor(unpack(ITEM_QUALITY[item.quality]))
 
-local hands_applied
-local HANDS = GetSpellInfo(54758)
-local check_hands_buff = function()
-    if UnitBuff("player", HANDS) then
-        if not hands_applied then
-            hands_applied = true
-            return true
-        end
-    elseif hands_applied then
-        hands_applied = false
+    local _, _, is_usable = GetInventoryItemCooldown("player", self.slotID)
+    self.usable = is_usable == 1
+
+    self:CheckAura(true)
+    self:CheckItemUsed()
+    if SETTINGS[self.nameID] then
+        self:Show()
     end
 end
 
 local playerBuff = function(spellID)
     local buff_name = GetSpellInfo(spellID)
-    local stacks, _, duration, expirationTime = select(4, UnitBuff("player", buff_name))
-    return stacks, duration, expirationTime
-end
-
-local check_buff = function(self)
-    local stacks, duration, expirationTime
-    local procs = MULTIPROC[self.itemID]
-    if procs then
-        for _, spellID in pairs(procs) do
-            stacks, duration, expirationTime = playerBuff(spellID)
-            if duration then
-                return stacks, duration, expirationTime
-            end
-        end
-    elseif self.item.spellID then
-        stacks, duration, expirationTime = playerBuff(self.item.spellID)
+    local stacks, _, duration, expirationTime, _, _, _, buffSpellID = select(4, UnitBuff("player", buff_name))
+    if buffSpellID == spellID then
         return stacks, duration, expirationTime
     end
 end
 
-local buff_applied = function(self, duration, expirationTime)
+local check_buff = function(self)
+    if self.item.spellID then
+        local stacks, duration, expirationTime = playerBuff(self.item.spellID)
+        return stacks, duration, expirationTime
+    elseif self.item.spellIDs then
+        for _, spellID in pairs(self.item.spellIDs) do
+            local stacks, duration, expirationTime = playerBuff(spellID)
+            if duration then
+                return stacks, duration, expirationTime
+            end
+        end
+    end
+end
+
+local ItemBuffApplied = function(self, duration, expirationTime)
     local item = self.item
-    item.ready = false
     item.applied = true
-    item.on_cd = true
     local cd_start = expirationTime - duration
     item.cd_start = cd_start
-    item.cd_finish = self.no_swap_cd and expirationTime or cd_start + item.cd
+    item.buff_end = expirationTime
+    item.cd_end = self.no_swap_cd and expirationTime or cd_start + item.CD
     self.texture:SetDesaturated(0)
     self.cooldown:SetReverse(true)
     self.cooldown:SetCooldown(cd_start, duration)
 end
 
-local buff_faded = function(self)
+local ItemBuffFaded = function(self)
+    self.item.applied = false
     if self.no_swap_cd then
-        return self:reset_frame()
-    elseif self.active then
-        local start, duration = GetInventoryItemCooldown("player", self.slotID)
-        self.item.cd = duration
-        self.item.cd_finish = start + duration
+        self:ResetFrame()
+    elseif self.usable then
+        self:CheckItemUsed()
+    else
+        self:ApplyItemCD()
     end
-    self:apply_cd(self.item.cd)
 end
 
-local check_aura = function(self)
-    if check_hands_buff() then return end
+local InventoryUpdated = function(self)
+    if self.item.applied
+    or self.no_swap_cd
+    or self.usable
+    or not self.item.procInDB then return end
 
-    local stacks, duration, expirationTime = check_buff(self)
-    if duration == 0 then
+    local now = GetTime()
+    if self.item.cd_end and self.item.cd_end - now > 30 then
+        self:ApplyItemCD()
+    else
+        self.item.cd_start = now
+        self.item.cd_end = now + 30
+        self:ApplyItemCD(30)
+    end
+end
+
+local CheckAura = function(self, swapped)
+    local buffStacks, buffDur, buffExp = check_buff(self)
+    if buffDur == 0 then
         self.item.applied = true
-        self.texture:SetDesaturated(0)
-        self.stacksText:SetText(stacks)
-    elseif duration then
-        if self.item.cd_finish == expirationTime
-        or self.item.applied and stacks == 0 then return end
-
-        self:buff_applied(duration, expirationTime)
-        if stacks ~= 0 then
-            self.stacksText:SetText(stacks)
+        self.stacksText:SetText(buffStacks)
+    elseif buffDur then
+        if buffStacks ~= 0 then
+            self.stacksText:SetText(buffStacks)
+        end
+        if swapped or buffExp ~= self.item.buff_end then
+            self:ItemBuffApplied(buffDur, buffExp)
         end
     elseif self.item.applied then
-        self:buff_faded()
+        self:ItemBuffFaded()
     end
 end
 
 local function OnEvent(self, event, arg1)
     if event == "UNIT_AURA" then
         if arg1 ~= "player" then return end
-        self:check_aura()
+        self:CheckAura()
     elseif event == "BAG_UPDATE_COOLDOWN" then
-        self:item_used_cd()
+        self:CheckItemUsed()
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
         if arg1 ~= self.slotID then return end
-        self:update_frame()
-        if self.item.on_cd and self.item.cd_finish - GetTime() > 30 then
-            self:apply_cd(self.item.cd)
-        else
-            self:cd_after_swap_or_login()
-        end
+        self:UpdateFrame()
+        self:InventoryUpdated()
     elseif event == "PLAYER_ENTERING_WORLD" then
-        self:update_frame()
+        self:UpdateFrame()
     elseif self.first_check and event == "PLAYER_ALIVE" then
         self.first_check = false
-        self:UnregisterEvent("PLAYER_ALIVE")
-        self:cd_after_swap_or_login()
-    end
-end
-
-local function OnUpdate(self)
-    local item = self.item
-    if item and item.on_cd and item.on_cd and GetTime() > item.cd_finish then
-        item.ready = true
-        item.applied = false
-        item.on_cd = false
-        self.texture:SetDesaturated(0)
+        self:InventoryUpdated()
     end
 end
 
@@ -296,15 +247,15 @@ local function OnMouseDown(self, button)
     if IsShiftKeyDown() then
         -- shift+left mouse swaps trinkets
         local slotID = self.slotID == 13 and 14 or 13
-        EquipItemByName(self.itemID, slotID)
+        EquipItemByName(self.item.ID, slotID)
     elseif IsAltKeyDown() then
         -- alt+left mouse swaps trinkets with same name: pnl 277 <-> 264
-        local item_name = GetItemInfo(self.itemID)
+        local item_name = GetItemInfo(self.item.ID)
         EquipItemByName(item_name, self.slotID)
     end
 end
 
-local function add_text(self)
+local function AddTextLayer(self)
     self.itemText = CreateFrame("Frame", nil, self)
     self.itemText:SetAllPoints()
 
@@ -321,7 +272,7 @@ local function add_text(self)
 	self.ilvl_text:SetShadowOffset(1, -1)
 end
 
-local redraw = function(self)
+local RedrawFrame = function(self)
     self:SetSize(SETTINGS.ICON_SIZE, SETTINGS.ICON_SIZE)
 
     local pos = COORDS[self.slotID]
@@ -345,12 +296,6 @@ local redraw = function(self)
     self.ilvl_text:SetFont(FONT, floor(SETTINGS.ICON_SIZE/4), "OUTLINE")
 end
 
-local redraw_all = function()
-    for _, frame in pairs(FRAMES) do
-        redraw(frame)
-    end
-end
-
 local function create_new_item(slotID)
     local self = CreateFrame("Frame", ADDON_NAME..slotID)
 
@@ -364,20 +309,22 @@ local function create_new_item(slotID)
     self.border = CreateFrame("Frame", nil, self)
     self.border:SetFrameStrata("MEDIUM")
 
+    AddTextLayer(self)
+
     self.slotID = slotID
     self.nameID = "TRINKET"..slotID
     self.first_check = true
-    self.update_frame = update_frame
-    self.apply_cd = apply_cd
-    self.cd_after_swap_or_login = cd_after_swap_or_login
-    self.reset_frame = reset_frame
-    self.check_aura = check_aura
-    self.item_used_cd = item_used_cd
-    self.buff_faded = buff_faded
-    self.buff_applied = buff_applied
+    self.UpdateFrame = UpdateFrame
+    self.ApplyItemCD = ApplyItemCD
+    self.InventoryUpdated = InventoryUpdated
+    self.ResetFrame = ResetFrame
+    self.CheckAura = CheckAura
+    self.CheckItemUsed = CheckItemUsed
+    self.ItemBuffFaded = ItemBuffFaded
+    self.ItemBuffApplied = ItemBuffApplied
+    self.RedrawFrame = RedrawFrame
 
-    add_text(self)
-    redraw(self)
+    self:RedrawFrame()
 
     self:RegisterEvent("PLAYER_ALIVE")
     self:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -385,7 +332,6 @@ local function create_new_item(slotID)
     self:RegisterEvent("BAG_UPDATE_COOLDOWN")
     self:RegisterEvent("UNIT_AURA")
     self:SetScript("OnEvent", OnEvent)
-    self:SetScript("OnUpdate", OnUpdate)
     self:SetScript("OnMouseDown", OnMouseDown)
     self:EnableMouse(true)
 
@@ -397,10 +343,9 @@ local function create_new_item(slotID)
 end
 
 
-local mainFrame = CreateFrame("Frame")
-
-function mainFrame:OnEvent(event, addOnName)
-	if addOnName == ADDON_NAME then
+function ADDON:OnEvent(event, arg1)
+	if event == "ADDON_LOADED" then
+        if arg1 ~= ADDON_NAME then return end
         local t = _G.TrinketCDsProfile
         if t then
             for key, _ in pairs(SETTINGS) do
@@ -411,117 +356,8 @@ function mainFrame:OnEvent(event, addOnName)
 
         FRAMES[13] = create_new_item(13)
         FRAMES[14] = create_new_item(14)
-		self:SetupOptions()
 	end
 end
 
-mainFrame:RegisterEvent("ADDON_LOADED")
-mainFrame:SetScript("OnEvent", mainFrame.OnEvent)
-
-local toggleTrinket = function(self)
-    local itemFrame = FRAMES[self.id]
-    local checked = self:GetChecked()
-    SETTINGS[itemFrame.nameID] = checked
-    if checked then
-        itemFrame:Show()
-    else
-        itemFrame:Hide()
-    end
-end
-
-function mainFrame:newCheckBox(id)
-    local name = "TrinketCDsCheckBox" .. id
-    local cb = CreateFrame("CheckButton", name, self.childFrame, "InterfaceOptionsCheckButtonTemplate")
-    cb:SetChecked(SETTINGS["TRINKET"..id])
-    cb.text = _G[name.."Text"]
-    cb.text:SetText("Toggle trinket "..id)
-    cb.id = 13
-    return cb
-end
-
-function mainFrame:newSlider(option_name)
-    local data = SLIDERS[option_name]
-    local id = "TrinketCDsSlider"..option_name
-    local slider = CreateFrame("Slider", id, self.childFrame, "OptionsSliderTemplate")
-
-    slider:SetSize(200, 15)
-    slider:SetMinMaxValues(data.min, data.max)
-    slider:SetValueStep(data.step or 1)
-    slider:SetValue(SETTINGS[option_name])
-
-    slider.InfoText = slider:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    slider.InfoText:SetPoint("TOP", slider, 0, 20)
-    slider.InfoText:SetSize(200, 20)
-	slider.InfoText:SetJustifyH("CENTER")
-    slider.InfoText:SetText(data.label)
-
-    slider.EditBox = CreateFrame("EditBox", id.."EditBox", slider, "InputBoxTemplate")
-	slider.EditBox:SetPoint("LEFT", slider, "RIGHT", 10, 0)
-	slider.EditBox:SetSize(50, 20)
-    slider.EditBox:SetMaxLetters(5)
-    slider.EditBox:SetJustifyH("RIGHT")
-    slider.EditBox:SetMultiLine(false)
-    slider.EditBox:SetAutoFocus(false)
-    slider.EditBox:ClearFocus()
-    slider.EditBox:SetText(SETTINGS[option_name])
-
-    slider:SetScript("OnValueChanged", function(f, value)
-        SETTINGS[option_name] = value
-        redraw_all()
-        f.EditBox:SetText(value)
-    end)
-
-    slider.EditBox:SetScript("OnEscapePressed", function(f)
-        f:ClearFocus()
-    end)
-
-    slider.EditBox:SetScript("OnEnterPressed", function(f)
-        local value = f:GetText()
-        if tonumber(value) then
-            slider:SetValue(value)
-            f:ClearFocus()
-        else
-            f:SetText(SETTINGS[option_name])
-        end
-    end)
-
-    return slider
-end
-
-function mainFrame:SetupOptions()
-    self.panel = CreateFrame("Frame")
-    self.panel.name = ADDON_NAME
-
-    self.childFrame = CreateFrame("Frame", nil, self.panel)
-    self.childFrame:SetPoint("TOPLEFT", 15, -15)
-    self.childFrame:SetPoint("BOTTOMRIGHT", -15, 15)
-    self.childFrame:Hide()
-
-    self.panel:SetScript("OnShow", function()
-        self.childFrame:Show()
-    end)
-    self.panel:SetScript("OnHide", function()
-        self.childFrame:Hide()
-    end)
-
-    local title = self.childFrame:CreateFontString(nil, nil, "GameFontNormalLarge")
-	title:SetPoint("TOPLEFT", self.childFrame)
-    title:SetText(ADDON_NAME)
-
-	local t13toggle = self:newCheckBox(13)
-	t13toggle:SetPoint("TOPLEFT", 0, -30)
-    t13toggle.text:SetText("Show trinket 13")
-    t13toggle:SetScript("OnClick", toggleTrinket)
-
-	local t14toggle = self:newCheckBox(14)
-	t14toggle:SetPoint("TOPLEFT", 0, -60)
-    t14toggle.text:SetText("Show trinket 14")
-    t14toggle:SetScript("OnClick", toggleTrinket)
-
-    for row, option_name in pairs(SLIDERS_ORDER) do
-        local slider = self:newSlider(option_name)
-        slider:SetPoint("TOPLEFT", 0, -100 - row * 35)
-    end
-
-	InterfaceOptions_AddCategory(self.panel)
-end
+ADDON:RegisterEvent("ADDON_LOADED")
+ADDON:SetScript("OnEvent", ADDON.OnEvent)
