@@ -7,17 +7,19 @@
  - Caches cooldown even if trinket was unequiped after proc.
  - Use [OmniCC](https://www.curseforge.com/wow/addons/omni-cc/files/454434) for duration text.
 
-# Alt-click:
+# Left mouse click preview:
+ **Default iCD vs 30 sec forced**
+## Alt-click:
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase-swap-alt.gif)
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase-swap-alt30.gif)
  - Swaps for trinket with same name, but different ilvl (if exists in bag).
 
-# Shift-click:
+## Shift-click:
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase-swap-shift.gif)
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase-swap-shift30.gif)
  - Swaps trinkets places to force cooldown for both.
 
-# Ctrl-click:
+## Ctrl-click:
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase-swap-ctrl.gif)
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase-swap-ctrl30.gif)
  - Reequips trinket to force it's cooldown.
