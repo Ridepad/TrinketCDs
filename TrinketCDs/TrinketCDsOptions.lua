@@ -19,10 +19,10 @@ local SLIDERS = {
     },
     SPACING = {
         label = "Change icon spacing",
-        min = 0, max = 20,
+        min = -500, max = 500,
     },
     ZOOM = {
-        label = "Change icon zoom",
+        label = "Change icon zoom %",
         min = -200, max = 200, step = 5,
     },
     BORDER_MARGIN = {
@@ -31,9 +31,12 @@ local SLIDERS = {
     },
     EDGE_SIZE = {
         label = "Change border edge",
-        min = 1, max = 20,
+        min = 1, max = 30,
     },
 }
+
+local optionsFrame = CreateFrame("Frame")
+ADDON.OPTIONS = optionsFrame
 
 local RedrawAll = function()
     for _, frame in pairs(FRAMES) do
@@ -44,7 +47,7 @@ end
 local toggleTrinket = function(self)
     local itemFrame = FRAMES[self.id]
     local checked = self:GetChecked()
-    SETTINGS[itemFrame.nameID] = checked
+    SETTINGS[itemFrame.nameID] = checked or 0
     if checked then
         itemFrame:Show()
     else
@@ -52,21 +55,26 @@ local toggleTrinket = function(self)
     end
 end
 
-function ADDON:newCheckBox(id)
+function optionsFrame:newCheckBox(id, y)
     local name = ADDON_NAME .. "CheckBox" .. id
-    local cb = CreateFrame("CheckButton", name, self.OPTIONS.childFrame, "InterfaceOptionsCheckButtonTemplate")
-    cb:SetChecked(SETTINGS["TRINKET"..id])
-    cb.text = _G[name.."Text"]
-    cb.text:SetText("Show trinket "..id)
-    cb.id = id
-    cb:SetScript("OnClick", toggleTrinket)
-    return cb
+    local checkBox = CreateFrame("CheckButton", name, self.childFrame, "InterfaceOptionsCheckButtonTemplate")
+    checkBox:SetPoint("TOPLEFT", 0, y)
+    checkBox.text = _G[name.."Text"]
+    checkBox.id = id
+    return checkBox
 end
 
-function ADDON:newSlider(option_name)
+function optionsFrame:TrinketCheckbox(id, y)
+    local checkBox = self:newCheckBox(id, y)
+    checkBox:SetChecked(SETTINGS["TRINKET" .. id])
+    checkBox:SetScript("OnClick", toggleTrinket)
+    checkBox.text:SetText("Show trinket " .. id)
+end
+
+function optionsFrame:newSlider(option_name)
     local data = SLIDERS[option_name]
     local id = ADDON_NAME .. "Slider" .. option_name
-    local slider = CreateFrame("Slider", id, self.OPTIONS.childFrame, "OptionsSliderTemplate")
+    local slider = CreateFrame("Slider", id, self.childFrame, "OptionsSliderTemplate")
 
     slider:SetSize(200, 15)
     slider:SetMinMaxValues(data.min, data.max)
@@ -112,34 +120,43 @@ function ADDON:newSlider(option_name)
     return slider
 end
 
-ADDON.OPTIONS = CreateFrame("Frame")
-ADDON.OPTIONS.name = ADDON_NAME
+function optionsFrame:OnEvent(event, arg1)
+	if event ~= "ADDON_LOADED" or arg1 ~= ADDON_NAME then return end
+    self.name = ADDON_NAME
+    self.childFrame = CreateFrame("Frame", nil, self)
+    self.childFrame:SetPoint("TOPLEFT", 15, -15)
+    self.childFrame:SetPoint("BOTTOMRIGHT", -15, 15)
+    self.childFrame:Hide()
 
-ADDON.OPTIONS.childFrame = CreateFrame("Frame", nil, ADDON.OPTIONS)
-ADDON.OPTIONS.childFrame:SetPoint("TOPLEFT", 15, -15)
-ADDON.OPTIONS.childFrame:SetPoint("BOTTOMRIGHT", -15, 15)
-ADDON.OPTIONS.childFrame:Hide()
+    self:SetScript("OnShow", function()
+        self.childFrame:Show()
+    end)
+    self:SetScript("OnHide", function()
+        self.childFrame:Hide()
+    end)
 
-ADDON.OPTIONS:SetScript("OnShow", function()
-    ADDON.OPTIONS.childFrame:Show()
-end)
-ADDON.OPTIONS:SetScript("OnHide", function()
-    ADDON.OPTIONS.childFrame:Hide()
-end)
+    local title = self.childFrame:CreateFontString(nil, nil, "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", self.childFrame)
+    title:SetText(ADDON_NAME)
 
-local title = ADDON.OPTIONS.childFrame:CreateFontString(nil, nil, "GameFontNormalLarge")
-title:SetPoint("TOPLEFT", ADDON.OPTIONS.childFrame)
-title:SetText(ADDON_NAME)
+    self:TrinketCheckbox(13, -30)
+    self:TrinketCheckbox(14, -60)
 
-local t13toggle = ADDON:newCheckBox(13)
-t13toggle:SetPoint("TOPLEFT", 0, -30)
+    local force30cb = self:newCheckBox(1, -90)
+    force30cb:SetChecked(SETTINGS["FORCE30"])
+    force30cb:SetScript("OnClick", function()
+        local checked = force30cb:GetChecked()
+        SETTINGS["FORCE30"] = checked or 0
+    end)
+    force30cb.text:SetText("Force 30 sec swap CD instead of iCD")
 
-local t14toggle = ADDON:newCheckBox(14)
-t14toggle:SetPoint("TOPLEFT", 0, -60)
+    for row, option_name in pairs(SLIDERS_ORDER) do
+        local slider = self:newSlider(option_name)
+        slider:SetPoint("TOPLEFT", 0, -100 - row * 35)
+    end
 
-for row, option_name in pairs(SLIDERS_ORDER) do
-    local slider = ADDON:newSlider(option_name)
-    slider:SetPoint("TOPLEFT", 0, -100 - row * 35)
+    InterfaceOptions_AddCategory(self)
 end
 
-InterfaceOptions_AddCategory(ADDON.OPTIONS)
+optionsFrame:RegisterEvent("ADDON_LOADED")
+optionsFrame:SetScript("OnEvent", optionsFrame.OnEvent)
