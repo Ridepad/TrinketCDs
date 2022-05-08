@@ -1,4 +1,4 @@
-# TrinketCDs v1.3.0
+# TrinketCDs v1.4.0
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase.png)
  - Full database of WotLK trinkets.
  - Buff duration, stacks, cooldown.
