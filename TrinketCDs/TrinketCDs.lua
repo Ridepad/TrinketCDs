@@ -3,9 +3,10 @@ local DB = _G.TrinketCDsDB
 local TRINKET_CD = DB.trinket_CDs
 local TRINKET_BUFFS = DB.trinket_buffs
 local MULTIBUFF = DB.multibuff
+local WITH_STACKS = DB.buffs_with_stacks
 local FRAMES = {}
 local SETTINGS = {
-    POS_X = 123,
+    POS_X = 115,
     POS_Y = -155,
     ICON_SIZE = 40,
     SPACING = 2,
@@ -21,11 +22,13 @@ local ADDON = CreateFrame("Frame")
 _G[ADDON_NAME] = ADDON
 ADDON.SETTINGS = SETTINGS
 ADDON.FRAMES = FRAMES
-ADDON_PROFILE = ADDON_NAME .. "Profile"
 
+local ADDON_MEDIA = "Interface\\Addons\\" .. ADDON_NAME .. "\\Media\\%s"
+local FONT = ADDON_MEDIA:format("Emblem.ttf")
+local BORDER_TEXTURE = ADDON_MEDIA:format("BigBorder.blp")
+
+local ADDON_PROFILE = ADDON_NAME .. "Profile"
 local ADDON_NAME_COLOR = format("|cFFFFFF00[%s]|r: ", ADDON_NAME)
-local FONT = format("Interface\\Addons\\%s\\Media\\Emblem.ttf", ADDON_NAME)
-local BORDER_TEXTURE = format("Interface\\Addons\\%s\\Media\\BigBorder.blp", ADDON_NAME)
 
 local ITEMS_CACHE = {}
 local ITEM_QUALITY = {
@@ -51,17 +54,91 @@ SLASH_RIDEPAD_TRINKETS1 = "/tcdp"
 SlashCmdList["RIDEPAD_TRINKETS"] = function()
     UpdateAddOnCPUUsage()
     local msg = ADDON_NAME_COLOR .. "Total seconds in addon:"
-    msg = string.format("%s\n%.3fs", msg, GetAddOnCPUUsage(ADDON_NAME) / 1000)
+    msg = format("%s\n%.3fs", msg, GetAddOnCPUUsage(ADDON_NAME) / 1000)
     for _, frame in pairs(FRAMES) do
         local t, c = GetFrameCPUUsage(frame)
-        msg = string.format("%s\n%.3fs | %d function calls", msg, t / 1000, c)
+        msg = format("%s\n%.3fs | %d function calls", msg, t / 1000, c)
     end
     print(msg)
 end
 
+local ResetFrame = function(self)
+    self.stacksText:SetText()
+    self.texture:SetDesaturated(0)
+    self.cooldown:SetReverse(false)
+    self.cooldown:SetCooldown(0, 0)
+end
+
+local ApplyItemCD = function(self, dur)
+    dur = dur or self.item.CD
+    self.stacksText:SetText()
+    self.texture:SetDesaturated(1)
+    self.cooldown:SetReverse(false)
+    self.cooldown:SetCooldown(self.item.cd_start, dur)
+end
+
+local newItem = function(itemID)
+    local _, _, itemQuality, itemLevel, _, _, _, _, _, texture = GetItemInfo(itemID)
+    local buffID = TRINKET_BUFFS[itemID]
+    local stacksBuff = WITH_STACKS[buffID]
+    local buffIDs = MULTIBUFF[itemID]
+    local procInDB = (buffID or buffIDs) and true
+    local itemCD = procInDB and (TRINKET_CD[itemID] or 45)
+    local item = {
+        ID = itemID,
+        CD = itemCD,
+        icon = texture,
+        ilvl = itemLevel,
+        quality = itemQuality,
+        spellID = buffID,
+        spellIDs = buffIDs,
+        procInDB = procInDB,
+        stacksBuff = stacksBuff,
+    }
+    ITEMS_CACHE[itemID] = item
+    return item
+end
+
+local CheckItemUsed = function(self)
+    if not self.usable then return end
+    local cdStart, cdDur = GetInventoryItemCooldown("player", self.slotID)
+    if cdDur == 0 then return end
+    if cdDur > 30 then
+        self.item.CD = cdDur
+    end
+    self.item.cd_start = cdStart
+    self.item.cd_end = cdStart + cdDur
+    if not self.item.applied then
+        self:ApplyItemCD(cdDur)
+    end
+end
+
+local ItemBuffApplied = function(self, duration, expirationTime)
+    local item = self.item
+    item.applied = true
+    local cd_start = expirationTime - duration
+    item.cd_start = cd_start
+    item.buff_end = expirationTime
+    item.cd_end = self.no_swap_cd and expirationTime or cd_start + item.CD
+    self.texture:SetDesaturated(0)
+    self.cooldown:SetReverse(true)
+    self.cooldown:SetCooldown(cd_start, duration)
+end
+
+local ItemBuffFaded = function(self)
+    self.item.applied = false
+    if self.no_swap_cd then
+        self:ResetFrame()
+    elseif self.usable then
+        self:CheckItemUsed()
+    else
+        self:ApplyItemCD()
+    end
+end
+
 local playerBuff = function(spellID)
     local buff_name = GetSpellInfo(spellID)
-    local stacks, _, duration, expirationTime, _, _, _, buffSpellID = select(4, UnitBuff("player", buff_name))
+    local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_name)
     if buffSpellID == spellID then
         return stacks, duration, expirationTime
     end
@@ -70,6 +147,9 @@ end
 local check_buff = function(self)
     if self.item.spellID then
         local stacks, duration, expirationTime = playerBuff(self.item.spellID)
+        if self.item.stacksBuff then
+            stacks = playerBuff(self.item.stacksBuff)
+        end
         return stacks, duration, expirationTime
     elseif self.item.spellIDs then
         for _, spellID in pairs(self.item.spellIDs) do
@@ -97,55 +177,6 @@ local CheckAura = function(self, swapped)
         end
     elseif self.item.applied then
         self:ItemBuffFaded()
-    end
-end
-
-local ResetFrame = function(self)
-    self.stacksText:SetText()
-    self.texture:SetDesaturated(0)
-    self.cooldown:SetReverse(false)
-    self.cooldown:SetCooldown(0, 0)
-end
-
-local ApplyItemCD = function(self, dur)
-    dur = dur or self.item.CD
-    self.stacksText:SetText()
-    self.texture:SetDesaturated(1)
-    self.cooldown:SetReverse(false)
-    self.cooldown:SetCooldown(self.item.cd_start, dur)
-end
-
-local newItem = function(itemID)
-    local _, _, itemQuality, itemLevel, _, _, _, _, _, texture = GetItemInfo(itemID)
-    local buffID = TRINKET_BUFFS[itemID]
-    local buffIDs = MULTIBUFF[itemID]
-    local procInDB = (buffID or buffIDs) and true
-    local itemCD = procInDB and (TRINKET_CD[itemID] or 45)
-    local item = {
-        ID = itemID,
-        CD = itemCD,
-        icon = texture,
-        ilvl = itemLevel,
-        quality = itemQuality,
-        spellID = buffID,
-        spellIDs = buffIDs,
-        procInDB = procInDB,
-    }
-    ITEMS_CACHE[itemID] = item
-    return item
-end
-
-local CheckItemUsed = function(self)
-    if not self.usable then return end
-    local cdStart, cdDur = GetInventoryItemCooldown("player", self.slotID)
-    if cdDur == 0 then return end
-    if cdDur > 30 then
-        self.item.CD = cdDur
-    end
-    self.item.cd_start = cdStart
-    self.item.cd_end = cdStart + cdDur
-    if not self.item.applied then
-        self:ApplyItemCD(cdDur)
     end
 end
 
@@ -182,29 +213,6 @@ local UpdateFrame = function(self)
     self:CheckItemUsed()
     if SETTINGS[self.nameID] == 1 then
         self:Show()
-    end
-end
-
-local ItemBuffApplied = function(self, duration, expirationTime)
-    local item = self.item
-    item.applied = true
-    local cd_start = expirationTime - duration
-    item.cd_start = cd_start
-    item.buff_end = expirationTime
-    item.cd_end = self.no_swap_cd and expirationTime or cd_start + item.CD
-    self.texture:SetDesaturated(0)
-    self.cooldown:SetReverse(true)
-    self.cooldown:SetCooldown(cd_start, duration)
-end
-
-local ItemBuffFaded = function(self)
-    self.item.applied = false
-    if self.no_swap_cd then
-        self:ResetFrame()
-    elseif self.usable then
-        self:CheckItemUsed()
-    else
-        self:ApplyItemCD()
     end
 end
 

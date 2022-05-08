@@ -1,11 +1,17 @@
-
 # TrinketCDs v1.3.0
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase.png)
  - Full database of WotLK trinkets.
  - Buff duration, stacks, cooldown.
+ - Doesn't depend on combat log.
  - Cooldown on login and after inventory change.
  - Caches cooldown even if trinket was unequiped after proc.
+
+# Install
+ - [Download](https://github.com/Ridepad/TrinketCDs/releases/latest).
  - Use [OmniCC](https://www.curseforge.com/wow/addons/omni-cc/files/454434) for duration text.
+ - Extract folder into `<WoW Folder>/Interface/Addons/` folder.
+ - Check in game options for settings:
+ ![](https://github.com/Ridepad/TrinketCDs/blob/main/showcase/showcase-options.png)
 
 # Left mouse click preview:
  **Default iCD vs 30 sec forced**
@@ -23,9 +29,3 @@
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase-swap-ctrl.gif)
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase-swap-ctrl30.gif)
  - Reequips trinket to force it's cooldown.
-
-# Install
- - [Download](https://github.com/Ridepad/TrinketCDs/releases/latest).
- - Extract folder into WOW/Interface/Addons/ folder.
- - Check in game options for settings:
- ![](https://github.com/Ridepad/TrinketCDs/blob/main/showcase/showcase-options.png)
