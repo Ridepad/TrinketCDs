@@ -5,17 +5,33 @@ local TRINKET_BUFFS = DB.trinket_buffs
 local MULTIBUFF = DB.multibuff
 local WITH_STACKS = DB.buffs_with_stacks
 local FRAMES = {}
+
+local default_item_settings_table = function(x, y, size, edge, ilvl)
+    return {
+        SHOW = 1,
+        SHOW_ILVL = ilvl,
+        POS_X = x,
+        POS_Y = y,
+        ICON_SIZE = size,
+        ZOOM = 0,
+        BORDER_MARGIN = 0,
+        EDGE_SIZE = edge,
+    }
+end
 local SETTINGS = {
-    POS_X = 115,
-    POS_Y = -155,
-    ICON_SIZE = 40,
-    SPACING = 2,
-    ZOOM = 0,
-    BORDER_MARGIN = 0,
-    EDGE_SIZE = 10,
-    TRINKET13 = 1,
-    TRINKET14 = 1,
-    FORCE30 = 0,
+    ITEMS = {
+        [13] = default_item_settings_table(128, -172, 44, 10, 1),
+        [14] = default_item_settings_table(175, -172, 44, 10, 1),
+        [15] = default_item_settings_table(150, -110, 30,  7, 0),
+        [11] = default_item_settings_table(150,  -80, 30,  7, 0),
+        [10] = default_item_settings_table(150,  -50, 30,  7, 0),
+        [16] = default_item_settings_table(150,  -20, 30,  7, 0),
+    },
+    SWITCHES = {
+        FORCE30 = 0,
+        HIDE_READY = 0,
+        COMBAT_ONLY = 0,
+    },
 }
 
 local ADDON = CreateFrame("Frame")
@@ -38,17 +54,6 @@ local ITEM_QUALITY = {
     [4] = {0.66, 0.33, 1.00},
     [7] = {0.90, 0.80, 0.50},
 }
-local COORDS = {
-    [13] = {
-        x = function() return SETTINGS.POS_X end,
-        y = function() return SETTINGS.POS_Y end,
-    },
-    [14] = {
-        x = function() return SETTINGS.POS_X + SETTINGS.ICON_SIZE + SETTINGS.SPACING end,
-        y = function() return SETTINGS.POS_Y end,
-    },
-}
-
 
 SLASH_RIDEPAD_TRINKETS1 = "/tcdp"
 SlashCmdList["RIDEPAD_TRINKETS"] = function()
@@ -62,28 +67,14 @@ SlashCmdList["RIDEPAD_TRINKETS"] = function()
     print(msg)
 end
 
-local ResetFrame = function(self)
-    self.stacksText:SetText()
-    self.texture:SetDesaturated(0)
-    self.cooldown:SetReverse(false)
-    self.cooldown:SetCooldown(0, 0)
-end
-
-local ApplyItemCD = function(self, dur)
-    dur = dur or self.item.CD
-    self.stacksText:SetText()
-    self.texture:SetDesaturated(1)
-    self.cooldown:SetReverse(false)
-    self.cooldown:SetCooldown(self.item.cd_start, dur)
-end
-
-local newItem = function(itemID)
+local newTrinket = function(itemID)
     local _, _, itemQuality, itemLevel, _, _, _, _, _, texture = GetItemInfo(itemID)
     local buffID = TRINKET_BUFFS[itemID]
     local stacksBuff = WITH_STACKS[buffID]
     local buffIDs = MULTIBUFF[itemID]
     local procInDB = (buffID or buffIDs) and true
     local itemCD = procInDB and (TRINKET_CD[itemID] or 45)
+
     local item = {
         ID = itemID,
         CD = itemCD,
@@ -99,8 +90,71 @@ local newItem = function(itemID)
     return item
 end
 
+local newNotTrinket = function(itemID, buffID)
+    if not buffID then return end
+    local _, _, itemQuality, itemLevel, _, _, _, _, _, texture = GetItemInfo(itemID)
+
+    local item = {
+        ID = itemID,
+        CD = 60,
+        icon = texture,
+        ilvl = itemLevel,
+        quality = itemQuality,
+        spellID = buffID,
+        procInDB = true,
+    }
+    ITEMS_CACHE[itemID] = item
+    return item
+end
+
+local newItem = function(self)
+    local itemID = GetInventoryItemID("player", self.slotID)
+    if not itemID then return end
+
+    local item = ITEMS_CACHE[itemID]
+    if item then return item end
+
+    if self.slotID == 13 or self.slotID == 14 then
+        return newTrinket(itemID)
+    elseif self.slotID == 10 then
+        return newNotTrinket(itemID, 54758)
+    elseif self.slotID == 11 or self.slotID == 12 then
+        local buffID = DB.ashen_rings[itemID]
+        if not buffID then
+            local slotID = self.slotID == 11 and 12 or 11
+            itemID = GetInventoryItemID("player", slotID)
+            buffID = DB.ashen_rings[itemID]
+            if buffID then
+                self.slotID = slotID
+            end
+        end
+        return newNotTrinket(itemID, buffID)
+    elseif self.slotID == 15 or self.slotID == 16 then
+        local itemLink = GetInventoryItemLink("player", self.slotID)
+        local enchID = itemLink:match("%d:(%d+)")
+        local buffID = DB.enchants[enchID]
+        if not buffID then return end
+        return newNotTrinket(itemID, buffID)
+    end
+end
+
+local ResetFrame = function(self)
+    self.stacks_text:SetText()
+    self.texture:SetDesaturated(0)
+    self.cooldown:SetReverse(false)
+    self.cooldown:SetCooldown(0, 0)
+end
+
+local ApplyItemCD = function(self, dur)
+    dur = dur or self.item.CD
+    self.stacks_text:SetText()
+    self.texture:SetDesaturated(1)
+    self.cooldown:SetReverse(false)
+    self.cooldown:SetCooldown(self.item.cd_start, dur)
+end
+
 local CheckItemUsed = function(self)
-    if not self.usable then return end
+    if not self.is_usable then return end
     local cdStart, cdDur = GetInventoryItemCooldown("player", self.slotID)
     if cdDur == 0 then return end
     if cdDur > 30 then
@@ -129,7 +183,7 @@ local ItemBuffFaded = function(self)
     self.item.applied = false
     if self.no_swap_cd then
         self:ResetFrame()
-    elseif self.usable then
+    elseif self.is_usable then
         self:CheckItemUsed()
     else
         self:ApplyItemCD()
@@ -167,10 +221,10 @@ local CheckAura = function(self, swapped)
     local buffStacks, buffDur, buffExp = check_buff(self)
     if buffDur == 0 then
         self.item.applied = true
-        self.stacksText:SetText(buffStacks)
+        self.stacks_text:SetText(buffStacks)
     elseif buffDur then
         if buffStacks ~= 0 then
-            self.stacksText:SetText(buffStacks)
+            self.stacks_text:SetText(buffStacks)
         end
         if swapped or buffExp ~= self.item.buff_end then
             self:ItemBuffApplied(buffDur, buffExp)
@@ -182,16 +236,16 @@ end
 
 local OnUpdate = function(self)
     if self.item.cd_end and GetTime() > self.item.cd_end then
+        self.item.cd_end = nil
         self.item.applied = false
         self.texture:SetDesaturated(0)
     end
 end
 
 local UpdateFrame = function(self)
-    local itemID = GetInventoryItemID("player", self.slotID)
-    if not itemID then return self:Hide() end
+    local item = newItem(self)
+    if not item then return self:Hide() end
 
-    local item = ITEMS_CACHE[itemID] or newItem(itemID)
     self.item = item
     self:ResetFrame()
     self.no_swap_cd = item.CD == 0
@@ -201,17 +255,19 @@ local UpdateFrame = function(self)
         self:SetScript("OnUpdate", OnUpdate)
     end
 
-    self.stacksText:SetText()
+    self.stacks_text:SetText()
     self.texture:SetTexture(item.icon)
     self.ilvl_text:SetText(item.ilvl)
     self.ilvl_text:SetTextColor(unpack(ITEM_QUALITY[item.quality]))
 
     local _, _, is_usable = GetInventoryItemCooldown("player", self.slotID)
-    self.usable = is_usable == 1
+    self.is_usable = is_usable == 1
 
     self:CheckAura(true)
     self:CheckItemUsed()
-    if SETTINGS[self.nameID] == 1 then
+    
+    local show = self.settings[self.nameID] ~= 0 and 1
+    if self.settings.SHOW ~= 0 then
         self:Show()
     end
 end
@@ -220,11 +276,11 @@ local InventoryUpdated = function(self)
     if not self.item
     or self.item.applied
     or self.no_swap_cd
-    or self.usable
+    or self.is_usable
     or not self.item.procInDB then return end
 
     local now = GetTime()
-    if SETTINGS.FORCE30 == 0 then
+    if SETTINGS.SWITCHES.FORCE30 == 0 then
         self.item.cd_start = now
         self.item.cd_end = now + self.item.CD
         self:ApplyItemCD()
@@ -253,14 +309,16 @@ local OnEvent = function(self, event, arg1, arg2)
         if self.swap_back_trigger and arg2 then
             self.swap_back_trigger = false
         end
-    elseif event == "PLAYER_ENTERING_WORLD" then
+    elseif event == "PLAYER_ENTERING_WORLD"
+    or event == "GET_ITEM_INFO_RECEIVED" then
+        if self.item then return end
         self:UpdateFrame()
-    elseif event == "PLAYER_DEAD" then
-        self.first_check = false
     elseif event == "PLAYER_ALIVE" then
         if not self.first_check then return end
         self.first_check = false
         self:InventoryUpdated()
+    elseif event == "PLAYER_DEAD" then
+        self.first_check = false
     end
 end
 
@@ -297,41 +355,82 @@ local AddTextLayer = function(self)
     self.itemText = CreateFrame("Frame", nil, self)
     self.itemText:SetAllPoints()
 
-    self.stacksText = newFontOverlay(self.itemText)
-    self.stacksText:SetPoint("TOP", 0, floor(SETTINGS.ICON_SIZE/3))
-    self.stacksText:SetWidth(SETTINGS.ICON_SIZE)
-	self.stacksText:SetJustifyH("CENTER")
+    self.stacks_text = newFontOverlay(self.itemText)
+    self.stacks_text:SetPoint("TOP", 0, floor(self.settings.ICON_SIZE/3))
+    self.stacks_text:SetWidth(self.settings.ICON_SIZE)
+	self.stacks_text:SetJustifyH("CENTER")
 
     self.ilvl_text = newFontOverlay(self.itemText)
     self.ilvl_text:SetPoint("BOTTOMRIGHT", 0, 2)
 end
 
 local RedrawFrame = function(self)
-    self:SetSize(SETTINGS.ICON_SIZE, SETTINGS.ICON_SIZE)
+    self:SetSize(self.settings.ICON_SIZE, self.settings.ICON_SIZE)
+    self:SetPoint("CENTER", self.settings.POS_X, self.settings.POS_Y)
 
-    local pos = COORDS[self.slotID]
-    self:SetPoint("CENTER", pos.x(), pos.y())
-
-    local zoom = SETTINGS.ZOOM / 100
+    local zoom = self.settings.ZOOM / 100
     local mooz = 1 - zoom
     self.texture:SetTexCoord(zoom, zoom, zoom, mooz, mooz, zoom, mooz, mooz)
 
-    local border_margin = SETTINGS.BORDER_MARGIN
+    local border_margin = self.settings.BORDER_MARGIN
     self.border:SetPoint("TOPLEFT", self, -border_margin, border_margin)
     self.border:SetPoint("BOTTOMRIGHT", self, border_margin, -border_margin)
     self.border:SetBackdrop({
         edgeFile = BORDER_TEXTURE,
         tile = true,
-        edgeSize = SETTINGS.EDGE_SIZE,
+        edgeSize = self.settings.EDGE_SIZE,
     })
     self.border:SetBackdropBorderColor(0, 0, 0, 1)
 
-    self.stacksText:SetFont(FONT, floor(SETTINGS.ICON_SIZE/2), "OUTLINE")
-    self.ilvl_text:SetFont(FONT, floor(SETTINGS.ICON_SIZE/4), "OUTLINE")
+    self.stacks_text:SetFont(FONT, floor(self.settings.ICON_SIZE/2), "OUTLINE")
+    self.ilvl_text:SetFont(FONT, floor(self.settings.ICON_SIZE/4), "OUTLINE")
+    if self.settings.SHOW_ILVL == 1 then
+        self.ilvl_text:Show()
+    else
+        self.ilvl_text:Hide()
+    end
+end
+
+local ToggleVisibility = function(self, show)
+    self:SetScript("OnEvent", show and OnEvent or nil)
+    self:SetScript("OnMouseDown", show and OnMouseDown or nil)
+    self:EnableMouse(show)
+
+    if show and self.settings.SHOW == 1 then
+        self:Show()
+    else
+        self:Hide()
+    end
+end
+
+local AddFunctions = function(self)
+    self.ApplyItemCD = ApplyItemCD
+    self.CheckAura = CheckAura
+    self.CheckItemUsed = CheckItemUsed
+    self.InventoryUpdated = InventoryUpdated
+    self.ItemBuffApplied = ItemBuffApplied
+    self.ItemBuffFaded = ItemBuffFaded
+    self.RedrawFrame = RedrawFrame
+    self.ResetFrame = ResetFrame
+    self.ToggleVisibility = ToggleVisibility
+    self.UpdateFrame = UpdateFrame
+
+    self:RegisterEvent("BAG_UPDATE_COOLDOWN")
+    self:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+    self:RegisterEvent("ITEM_UNLOCKED")
+    self:RegisterEvent("PLAYER_ALIVE")
+    self:RegisterEvent("PLAYER_DEAD")
+    self:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    self:RegisterEvent("UNIT_AURA")
 end
 
 local create_new_item = function(slotID)
-    local self = CreateFrame("Frame", ADDON_NAME..slotID)
+    local self = CreateFrame("Frame", ADDON_NAME..slotID, UIParent)
+
+    self.slotID = slotID
+    self.first_check = true
+    self.settings = SETTINGS.ITEMS[slotID]
 
     self.texture = self:CreateTexture(nil, "OVERLAY")
     self.texture:SetAllPoints()
@@ -344,55 +443,45 @@ local create_new_item = function(slotID)
     self.border:SetFrameStrata("MEDIUM")
 
     AddTextLayer(self)
+    RedrawFrame(self)
+    AddFunctions(self)
 
-    self.slotID = slotID
-    self.nameID = "TRINKET"..slotID
-    self.first_check = true
-    self.UpdateFrame = UpdateFrame
-    self.ApplyItemCD = ApplyItemCD
-    self.InventoryUpdated = InventoryUpdated
-    self.ResetFrame = ResetFrame
-    self.CheckAura = CheckAura
-    self.CheckItemUsed = CheckItemUsed
-    self.ItemBuffFaded = ItemBuffFaded
-    self.ItemBuffApplied = ItemBuffApplied
-    self.RedrawFrame = RedrawFrame
+    -- change_visibility(self)
+    ToggleVisibility(self, true)
 
-    self:RedrawFrame()
-
-    self:RegisterEvent("BAG_UPDATE_COOLDOWN")
-    self:RegisterEvent("ITEM_UNLOCKED")
-    self:RegisterEvent("PLAYER_ALIVE")
-    self:RegisterEvent("PLAYER_DEAD")
-    self:RegisterEvent("PLAYER_ENTERING_WORLD")
-    self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-    self:RegisterEvent("UNIT_AURA")
-    self:SetScript("OnEvent", OnEvent)
-    self:SetScript("OnMouseDown", OnMouseDown)
-    self:EnableMouse(true)
-
-    if SETTINGS[self.nameID] == 0 then
-        self:Hide()
-    end
+    FRAMES[slotID] = self
 
     return self
 end
 
+local update_table = function(new_table, old_table, is_bool)
+    if not new_table then return end
+    for old_table_key, _ in pairs(old_table) do
+        local new_table_value = new_table[old_table_key]
+        if new_table_value then
+            old_table[old_table_key] = is_bool and new_table_value ~= 0 and 1 or new_table_value
+        end
+    end
+end
 
 function ADDON:OnEvent(event, arg1)
 	if event == "ADDON_LOADED" then
         if arg1 ~= ADDON_NAME then return end
 
-        local t = _G[ADDON_PROFILE]
-        if t then
-            for key, _ in pairs(SETTINGS) do
-                SETTINGS[key] = t[key] == true and 1 or t[key] or 0
+        local svars = _G[ADDON_PROFILE]
+        if svars then
+            for item_slot_id, settings_item in pairs(SETTINGS.ITEMS) do
+                update_table(svars.ITEMS[item_slot_id], settings_item)
             end
+            update_table(svars.SWITCHES, SETTINGS.SWITCHES, true)
         end
         _G[ADDON_PROFILE] = SETTINGS
 
-        FRAMES[13] = create_new_item(13)
-        FRAMES[14] = create_new_item(14)
+        create_new_item(13)
+        create_new_item(14)
+        create_new_item(15)
+        create_new_item(11)
+        create_new_item(10)
 	end
 end
 

@@ -299,8 +299,12 @@ DB.ashen_rings = {
     [52572] = 72412,
 }
 
-DB.cloaks = {
+DB.enchants = {
     ["3722"] = 55637, -- Lightweave
     ["3728"] = 55767, -- Darkglow
     ["3730"] = 55775, -- Swordguard
+    ["3790"] = 59626, -- Black Magic
+    ["2673"] = 27984, -- Mongoose
+    ["5392"] = 64579, -- Blood Draining
+    ["5393"] = 20034, -- Crusader
 }

@@ -1,6 +1,7 @@
-# TrinketCDs v1.4.0
+# TrinketCDs v1.5.0
  ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase.png)
  - Full database of WotLK trinkets.
+ - Ashen rings, cloak and weapon enchants.
  - Buff duration, stacks, cooldown.
  - Doesn't depend on combat log.
  - Cooldown on login and after inventory change.
