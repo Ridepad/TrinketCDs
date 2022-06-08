@@ -1,8 +1,14 @@
 ## Interface: 30300
 ## Title:|cffee0080TrinketCDs|r
-## Author: Ridepad
-## Version: 1.4.0
+## Author: Ridepad (|cff888888Ridepad#7722|r)
+## Version: 2.0.0-beta.2
 ## SavedVariables: TrinketCDsProfile
+## Notes: Trinkets and item enchants proc tracker.
+## OptionalDeps: OmniCC
+
+## X-Category: Combat
+## X-Date: 2022-05-31--05-30
+## X-Website: https://github.com/Ridepad/TrinketCDs
 
 TrinketCDsDB.lua
 TrinketCDs.lua

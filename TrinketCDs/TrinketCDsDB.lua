@@ -1,10 +1,10 @@
 local DB = {}
 _G.TrinketCDsDB = DB
 
-local trinket_CDs = {}
-DB.trinket_CDs = trinket_CDs
+local TRINKET_PROC_CD = {}
+DB.TRINKET_PROC_CD = TRINKET_PROC_CD
 
-local _CDs = {
+local procs_grouped_by_CD = {
     --  Heroic  Normal
     [0] = {
         47059,  47041, -- Solace of the Defeated
@@ -32,13 +32,13 @@ local _CDs = {
         50363,  50362, -- Deathbringer's Will
     },
 }
-for cd_duration, itemIDs in pairs(_CDs) do
-    for _, itemID in ipairs(itemIDs) do
-        trinket_CDs[itemID] = cd_duration
+for cd_duration, itemIDs in pairs(procs_grouped_by_CD) do
+    for _, itemID in pairs(itemIDs) do
+        TRINKET_PROC_CD[itemID] = cd_duration
     end
 end
 
-DB.trinket_buffs = {
+DB.TRINKET_PROC_ID = {
     [54588] = 75473, -- Charred Twilight Scale
     [54572] = 75466,
     [54590] = 75456, -- Sharpened Twilight Scale
@@ -248,9 +248,9 @@ DB.trinket_buffs = {
 
 --                 STR,   AGI,   INT,   SPI
 local DARKMOON = {60229, 60233, 60234, 60235}
-local DEATHS_HEROIC = {67772, 67773}
-local DEATHS_NORMAL = {67703, 67708}
-local DBW_HEROIC ={
+local DEATH_HEROIC = {67772, 67773}
+local DEATH_NORMAL = {67703, 67708}
+local DBW_HEROIC = {
     71556, -- agility
     71557, -- arp
     71558, -- ap
@@ -258,7 +258,7 @@ local DBW_HEROIC ={
     71560, -- haste
     71561, -- strength
 }
-local DBW_NORMAL= {
+local DBW_NORMAL = {
     71484, -- strength
     71485, -- agility
     71486, -- ap
@@ -267,26 +267,26 @@ local DBW_NORMAL= {
     71492, -- haste
 }
 
-DB.multibuff = {
+DB.TRINKET_PROC_MULTIBUFF = {
     [42987] = DARKMOON, -- Strength
     [44253] = DARKMOON, -- Agility
     [44254] = DARKMOON, -- Spirit
     [44255] = DARKMOON, -- Intellect
-    [47464] = DEATHS_HEROIC,
-    [47131] = DEATHS_HEROIC,
-    [47303] = DEATHS_NORMAL,
-    [47115] = DEATHS_NORMAL,
+    [47464] = DEATH_HEROIC,
+    [47131] = DEATH_HEROIC,
+    [47303] = DEATH_NORMAL,
+    [47115] = DEATH_NORMAL,
     [50363] = DBW_HEROIC,
     [50362] = DBW_NORMAL,
 }
 
-DB.buffs_with_stacks = {
+DB.TRINKET_PROC_STACKS = {
     [71644] = 71643,
     [71601] = 71600,
     [64999] = 65000,
 }
 
-DB.ashen_rings = {
+DB.ASHEN_RINGS = {
     [50397] = 72416, -- SP DD
     [50398] = 72416,
     [50399] = 72418, -- SP Heal
@@ -299,8 +299,85 @@ DB.ashen_rings = {
     [52572] = 72412,
 }
 
-DB.cloaks = {
+DB.enchants = {
+    ["3601"] = 54793, -- Frag Belt
+    ["3604"] = 54758, -- Hyperspeed Accelerators
+    ["3606"] = 54861, -- Nitro Boosts
     ["3722"] = 55637, -- Lightweave
     ["3728"] = 55767, -- Darkglow
     ["3730"] = 55775, -- Swordguard
+    ["3790"] = 59626, -- Black Magic
+    ["2673"] = 27984, -- Mongoose
+    ["5392"] = 64579, -- Blood Draining
+    ["5393"] = 20034, -- Crusader
+}
+
+DB.ITEM_QUALITY = {
+    [1] = {1.00, 1.00, 1.00},
+    [2] = {0.12, 1.00, 0.00},
+    [3] = {0.00, 0.44, 0.87},
+    [4] = {0.66, 0.33, 1.00},
+    [7] = {0.90, 0.80, 0.50},
+}
+
+DB.ITEM_PROC_TYPE = {
+    [6] = "enchant_usable",
+    [8] = "enchant_usable",
+    [10] = "enchant_usable",
+    [11] = "ring",
+    [12] = "ring",
+    [13] = "trinket",
+    [14] = "trinket",
+    [15] = "enchant_usable",
+    [16] = "enchant_usable",
+}
+
+DB.ITEM_GROUP = {
+    [6] = "Belt",
+    [8] = "Boots",
+    [10] = "Hands",
+    [11] = "Ring",
+    [12] = "Ring",
+    [13] = "Trinket1",
+    [14] = "Trinket2",
+    [15] = "Cloak",
+    [16] = "Weapon",
+}
+
+local default_item_settings_table = function(x, y, size, edge, ilvl)
+    return {
+        SHOW = 1,
+        SHOW_ILVL = ilvl,
+        POS_X = x,
+        POS_Y = y,
+        ICON_SIZE = size,
+        ZOOM = 0,
+        BORDER_MARGIN = 0,
+        EDGE_SIZE = edge,
+        CD_SIZE = 40,
+        ILVL_SIZE = 25,
+        STACKS_SIZE = 50,
+    }
+end
+
+DB.DEFAULT_SETTINGS = {
+    ITEMS = {
+        [13] = default_item_settings_table(128, -172, 44, 10, 1),
+        [14] = default_item_settings_table(174, -172, 44, 10, 1),
+
+         [6] = default_item_settings_table(121,  -70, 30,  7, 0),
+        [10] = default_item_settings_table(151,  -70, 30,  7, 0),
+         [8] = default_item_settings_table(181,  -70, 30,  7, 0),
+        [11] = default_item_settings_table(136, -100, 30,  7, 0),
+        [15] = default_item_settings_table(166, -100, 30,  7, 0),
+        [16] = default_item_settings_table(150, -130, 30,  7, 0),
+    },
+    SWITCHES = {
+        USE_ON_CLICK = 0,
+        HIDE_READY = 0,
+        COMBAT_ONLY = 0,
+        STACKS_BOTTOM = 0,
+        SHOW_DECIMALS = 0,
+        FORCE30 = 0,
+    },
 }

@@ -1,159 +1,170 @@
 local ADDON_NAME = "TrinketCDs"
 local DB = _G.TrinketCDsDB
-local TRINKET_CD = DB.trinket_CDs
-local TRINKET_BUFFS = DB.trinket_buffs
-local MULTIBUFF = DB.multibuff
-local WITH_STACKS = DB.buffs_with_stacks
-local FRAMES = {}
-local SETTINGS = {
-    POS_X = 115,
-    POS_Y = -155,
-    ICON_SIZE = 40,
-    SPACING = 2,
-    ZOOM = 0,
-    BORDER_MARGIN = 0,
-    EDGE_SIZE = 10,
-    TRINKET13 = 1,
-    TRINKET14 = 1,
-    FORCE30 = 0,
-}
+local SETTINGS = DB.DEFAULT_SETTINGS
+local SWITCHES = SETTINGS.SWITCHES
 
-local ADDON = CreateFrame("Frame")
-_G[ADDON_NAME] = ADDON
-ADDON.SETTINGS = SETTINGS
-ADDON.FRAMES = FRAMES
+local ADDON_PROFILE = ADDON_NAME .. "Profile"
+local ADDON_NAME_COLOR = format("|cFFFFFF00[%s]|r: ", ADDON_NAME)
 
 local ADDON_MEDIA = "Interface\\Addons\\" .. ADDON_NAME .. "\\Media\\%s"
 local FONT = ADDON_MEDIA:format("Emblem.ttf")
 local BORDER_TEXTURE = ADDON_MEDIA:format("BigBorder.blp")
 
-local ADDON_PROFILE = ADDON_NAME .. "Profile"
-local ADDON_NAME_COLOR = format("|cFFFFFF00[%s]|r: ", ADDON_NAME)
+local CHICKEN = 10725
+local BORDER_WEAK = {edgeFile = BORDER_TEXTURE}
+local PRECISION_FORMAT = {[0] = "%d", [1] = "%.1f"}
 
+local FRAMES = {}
 local ITEMS_CACHE = {}
-local ITEM_QUALITY = {
-    [1] = {1.00, 1.00, 1.00},
-    [2] = {0.12, 1.00, 0.00},
-    [3] = {0.00, 0.44, 0.87},
-    [4] = {0.66, 0.33, 1.00},
-    [7] = {0.90, 0.80, 0.50},
-}
-local COORDS = {
-    [13] = {
-        x = function() return SETTINGS.POS_X end,
-        y = function() return SETTINGS.POS_Y end,
-    },
-    [14] = {
-        x = function() return SETTINGS.POS_X + SETTINGS.ICON_SIZE + SETTINGS.SPACING end,
-        y = function() return SETTINGS.POS_Y end,
-    },
-}
+local SPELLS_CACHE = {}
 
+local ADDON = CreateFrame("Frame")
+_G[ADDON_NAME] = ADDON
+ADDON.FRAMES = FRAMES
+ADDON.SETTINGS = SETTINGS
+ADDON.ITEM_GROUP = DB.ITEM_GROUP
+ADDON.ITEMS_TO_TRACK = {13, 14, 6, 8, 10, 11, 15, 16}
 
-SLASH_RIDEPAD_TRINKETS1 = "/tcdp"
-SlashCmdList["RIDEPAD_TRINKETS"] = function()
-    UpdateAddOnCPUUsage()
-    local msg = ADDON_NAME_COLOR .. "Total seconds in addon:"
-    msg = format("%s\n%.3fs", msg, GetAddOnCPUUsage(ADDON_NAME) / 1000)
-    for _, frame in pairs(FRAMES) do
-        local t, c = GetFrameCPUUsage(frame)
-        msg = format("%s\n%.3fs | %d function calls", msg, t / 1000, c)
-    end
-    print(msg)
-end
+local function newTrinket(item_ID)
+    local _, _, item_quality, item_level, _, _, _, _, _, item_texture = GetItemInfo(item_ID)
+    local buff_ID = DB.TRINKET_PROC_ID[item_ID]
+    local stacks_ID = DB.TRINKET_PROC_STACKS[buff_ID]
+    local buff_IDs = DB.TRINKET_PROC_MULTIBUFF[item_ID]
+    local proc_in_DB = (buff_ID or buff_IDs) and true
+    local itemCD = proc_in_DB and (DB.TRINKET_PROC_CD[item_ID] or 45)
 
-local ResetFrame = function(self)
-    self.stacksText:SetText()
-    self.texture:SetDesaturated(0)
-    self.cooldown:SetReverse(false)
-    self.cooldown:SetCooldown(0, 0)
-end
-
-local ApplyItemCD = function(self, dur)
-    dur = dur or self.item.CD
-    self.stacksText:SetText()
-    self.texture:SetDesaturated(1)
-    self.cooldown:SetReverse(false)
-    self.cooldown:SetCooldown(self.item.cd_start, dur)
-end
-
-local newItem = function(itemID)
-    local _, _, itemQuality, itemLevel, _, _, _, _, _, texture = GetItemInfo(itemID)
-    local buffID = TRINKET_BUFFS[itemID]
-    local stacksBuff = WITH_STACKS[buffID]
-    local buffIDs = MULTIBUFF[itemID]
-    local procInDB = (buffID or buffIDs) and true
-    local itemCD = procInDB and (TRINKET_CD[itemID] or 45)
     local item = {
-        ID = itemID,
+        ID = item_ID,
         CD = itemCD,
-        icon = texture,
-        ilvl = itemLevel,
-        quality = itemQuality,
-        spellID = buffID,
-        spellIDs = buffIDs,
-        procInDB = procInDB,
-        stacksBuff = stacksBuff,
+        ilvl = item_level,
+        quality = item_quality,
+        texture = item_texture,
+        spell_ID = buff_ID,
+        spell_IDs = buff_IDs,
+        stacks_ID = stacks_ID,
+        proc_in_DB = proc_in_DB,
     }
-    ITEMS_CACHE[itemID] = item
+    ITEMS_CACHE[item_ID] = item
     return item
 end
 
-local CheckItemUsed = function(self)
-    if not self.usable then return end
-    local cdStart, cdDur = GetInventoryItemCooldown("player", self.slotID)
+local function newNotTrinket(item_ID, buff_ID)
+    if not buff_ID then return end
+    local _, _, item_quality, item_level, _, _, _, _, _, item_texture = GetItemInfo(item_ID)
+
+    local item = {
+        ID = item_ID,
+        CD = 60,
+        ilvl = item_level,
+        quality = item_quality,
+        texture = item_texture,
+        spell_ID = buff_ID,
+        proc_in_DB = true,
+    }
+    ITEMS_CACHE[item_ID] = item
+    return item
+end
+
+local function check_other_ring(self)
+    local slot_ID = self.slot_ID == 11 and 12 or 11
+    local item_ID = GetInventoryItemID("player", slot_ID)
+    local buff_ID = DB.ASHEN_RINGS[item_ID]
+    if buff_ID then
+        self.slot_ID = slot_ID
+        return item_ID, buff_ID
+    end
+end
+
+local function newItem(self)
+    local item_ID = GetInventoryItemID("player", self.slot_ID)
+    if not item_ID then return end
+
+    local item = ITEMS_CACHE[item_ID]
+    if item then return item end
+
+    if self.item_proc_type == "trinket" then
+        return newTrinket(item_ID)
+    elseif self.item_proc_type == "ring" then
+        local buff_ID = DB.ASHEN_RINGS[item_ID]
+        if not buff_ID then
+            item_ID, buff_ID = check_other_ring(self)
+        end
+        return newNotTrinket(item_ID, buff_ID)
+    elseif self.item_proc_type == "enchant_usable" then
+        local item_link = GetInventoryItemLink("player", self.slot_ID)
+        local ench_ID = item_link:match("%d:(%d+)")
+        local buff_ID = DB.enchants[ench_ID]
+        return newNotTrinket(item_ID, buff_ID)
+    end
+end
+
+local function ResetFrame(self)
+    self.cooldown_current_end = nil
+    self.stacks_text:SetText()
+    self.texture:SetDesaturated(0)
+    self.cooldown:SetReverse(false)
+    self.cooldown:SetCooldown(0, 0)
+    self:ToggleVisibility('ResetFrame')
+end
+
+local function ApplyItemCD(self, dur)
+    if self.item.applied then return end
+
+    dur = dur or self.item.CD
+    self.stacks_text:SetText()
+    self.texture:SetDesaturated(1)
+    self.cooldown:SetReverse(false)
+    self.cooldown:SetCooldown(self.item.cd_start, dur)
+    self.cooldown_current_end = self.item.cd_start + dur
+    self:ToggleVisibility('ApplyItemCD')
+end
+
+local function ItemUsedCheck(self)
+    if not self.is_usable then return end
+
+    local cdStart, cdDur = GetInventoryItemCooldown("player", self.slot_ID)
     if cdDur == 0 then return end
+
     if cdDur > 30 then
         self.item.CD = cdDur
+        if self.item.ID == CHICKEN and self.old_item_ID
+        and GetTime() - cdStart < 5 then
+            EquipItemByName(self.old_item_ID, self.slot_ID)
+        end
     end
+
     self.item.cd_start = cdStart
     self.item.cd_end = cdStart + cdDur
-    if not self.item.applied then
-        self:ApplyItemCD(cdDur)
+    self:ApplyItemCD(cdDur)
+end
+
+local function get_spell_name(spell_ID)
+    local spell_name = SPELLS_CACHE[spell_ID]
+    if not spell_name then
+        spell_name = GetSpellInfo(spell_ID)
+        SPELLS_CACHE[spell_ID] = spell_name
     end
+    return spell_name
 end
 
-local ItemBuffApplied = function(self, duration, expirationTime)
-    local item = self.item
-    item.applied = true
-    local cd_start = expirationTime - duration
-    item.cd_start = cd_start
-    item.buff_end = expirationTime
-    item.cd_end = self.no_swap_cd and expirationTime or cd_start + item.CD
-    self.texture:SetDesaturated(0)
-    self.cooldown:SetReverse(true)
-    self.cooldown:SetCooldown(cd_start, duration)
-end
-
-local ItemBuffFaded = function(self)
-    self.item.applied = false
-    if self.no_swap_cd then
-        self:ResetFrame()
-    elseif self.usable then
-        self:CheckItemUsed()
-    else
-        self:ApplyItemCD()
-    end
-end
-
-local playerBuff = function(spellID)
-    local buff_name = GetSpellInfo(spellID)
+local function player_buff(spell_ID)
+    local buff_name = get_spell_name(spell_ID)
     local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_name)
-    if buffSpellID == spellID then
+    if buffSpellID == spell_ID then
         return stacks, duration, expirationTime
     end
 end
 
-local check_buff = function(self)
-    if self.item.spellID then
-        local stacks, duration, expirationTime = playerBuff(self.item.spellID)
-        if self.item.stacksBuff then
-            stacks = playerBuff(self.item.stacksBuff)
+local function check_proc(item)
+    if item.spell_ID then
+        local stacks, duration, expirationTime = player_buff(item.spell_ID)
+        if item.stacks_ID then
+            stacks = player_buff(item.stacks_ID)
         end
         return stacks, duration, expirationTime
-    elseif self.item.spellIDs then
-        for _, spellID in pairs(self.item.spellIDs) do
-            local stacks, duration, expirationTime = playerBuff(spellID)
+    elseif item.spell_IDs then
+        for _, spell_ID in pairs(item.spell_IDs) do
+            local stacks, duration, expirationTime = player_buff(spell_ID)
             if duration then
                 return stacks, duration, expirationTime
             end
@@ -161,70 +172,92 @@ local check_buff = function(self)
     end
 end
 
-local CheckAura = function(self, swapped)
+local function ItemBuffApplied(self, duration, expirationTime)
+    local cd_start = expirationTime - duration
+    local item = self.item
+    item.applied = true
+    if not item.cd_start or cd_start > item.cd_start then
+        item.cd_start = cd_start
+        item.buff_end = expirationTime
+        item.cd_end = self.no_swap_cd and expirationTime or cd_start + item.CD
+    end
+    self.texture:SetDesaturated(0)
+    self.cooldown:SetReverse(true)
+    self.cooldown:SetCooldown(cd_start, duration)
+    self.cooldown_current_end = expirationTime
+    self:ToggleVisibility('ItemBuffApplied')
+end
+
+local function ItemBuffFaded(self)
+    self.item.applied = false
+    if self.no_swap_cd then
+        self:ResetFrame()
+    elseif self.is_usable then
+        self:ItemUsedCheck()
+    else
+        self:ApplyItemCD()
+    end
+end
+
+local function AuraCheck(self, swapped)
     if not self.item then return end
 
-    local buffStacks, buffDur, buffExp = check_buff(self)
-    if buffDur == 0 then
+    local _stacks, _duration, _expiration = check_proc(self.item)
+    if _duration == 0 then
         self.item.applied = true
-        self.stacksText:SetText(buffStacks)
-    elseif buffDur then
-        if buffStacks ~= 0 then
-            self.stacksText:SetText(buffStacks)
+        self.stacks_text:SetText(_stacks)
+    elseif _duration then
+        if _stacks ~= 0 then
+            self.stacks_text:SetText(_stacks)
         end
-        if swapped or buffExp ~= self.item.buff_end then
-            self:ItemBuffApplied(buffDur, buffExp)
+        if swapped or _expiration ~= self.item.buff_end then
+            self:ItemBuffApplied(_duration, _expiration)
         end
     elseif self.item.applied then
         self:ItemBuffFaded()
     end
 end
 
-local OnUpdate = function(self)
+local function OnUpdate(self)
     if self.item.cd_end and GetTime() > self.item.cd_end then
-        self.item.applied = false
+        self.item.cd_end = nil
+        self.cooldown_current_end = nil
         self.texture:SetDesaturated(0)
+        if SWITCHES.HIDE_READY ~= 0 then
+            self:Hide()
+        end
     end
 end
 
-local UpdateFrame = function(self)
-    local itemID = GetInventoryItemID("player", self.slotID)
-    if not itemID then return self:Hide() end
-
-    local item = ITEMS_CACHE[itemID] or newItem(itemID)
+local function ItemUpdate(self)
+    local item = newItem(self)
+    self.old_item_ID = self.item and self.item.ID
     self.item = item
-    self:ResetFrame()
-    self.no_swap_cd = item.CD == 0
-    if self.no_swap_cd then
-        self:SetScript("OnUpdate", nil)
-    else
-        self:SetScript("OnUpdate", OnUpdate)
-    end
+    if not item then return self:Hide() end
 
-    self.stacksText:SetText()
-    self.texture:SetTexture(item.icon)
+    self.texture:SetTexture(item.texture)
     self.ilvl_text:SetText(item.ilvl)
-    self.ilvl_text:SetTextColor(unpack(ITEM_QUALITY[item.quality]))
+    self.ilvl_text:SetTextColor(unpack(DB.ITEM_QUALITY[item.quality]))
 
-    local _, _, is_usable = GetInventoryItemCooldown("player", self.slotID)
-    self.usable = is_usable == 1
+    self.no_swap_cd = item.CD == 0
+    self:SetScript("OnUpdate", item.CD ~= 0 and OnUpdate or nil)
 
-    self:CheckAura(true)
-    self:CheckItemUsed()
-    if SETTINGS[self.nameID] == 1 then
-        self:Show()
-    end
+    local _, _, is_usable = GetInventoryItemCooldown("player", self.slot_ID)
+    self.is_usable = is_usable == 1
+
+    self:ResetFrame()
+    self:AuraCheck(true)
+    self:ItemUsedCheck()
 end
 
-local InventoryUpdated = function(self)
+local function ItemChanged(self)
     if not self.item
-    or self.item.applied
     or self.no_swap_cd
-    or self.usable
-    or not self.item.procInDB then return end
+    or self.is_usable
+    or not self.item.proc_in_DB then return end
 
     local now = GetTime()
-    if SETTINGS.FORCE30 == 0 then
+    if SWITCHES.FORCE30 == 0 then
         self.item.cd_start = now
         self.item.cd_end = now + self.item.CD
         self:ApplyItemCD()
@@ -237,164 +270,280 @@ local InventoryUpdated = function(self)
     end
 end
 
-local OnEvent = function(self, event, arg1, arg2)
+local function OnMouseDown(self, button)
+    if InCombatLockdown() then
+        print(ADDON_NAME_COLOR .. "Leave combat to swap items")
+    elseif button == "LeftButton" then
+        if IsShiftKeyDown() then
+            -- Shift+left mouse swaps trinkets to force cooldown of both
+            if self.slot_ID == 13 then
+                EquipItemByName(self.item.ID, 14)
+            elseif self.slot_ID == 14 then
+                EquipItemByName(self.item.ID, 13)
+            end
+        elseif IsAltKeyDown() then
+            -- Alt+left mouse swaps to an item with the same name: pnl 277 <-> 264
+            local item_name = GetItemInfo(self.item.ID)
+            EquipItemByName(item_name, self.slot_ID)
+        elseif IsControlKeyDown() then
+            -- Ctrl+left mouse reequips item to force it's cooldown
+            self.old_item_ID = self.item.ID
+            self.swap_back_trigger = true
+            PickupInventoryItem(self.slot_ID)
+            PutItemInBackpack()
+        end
+    elseif button == "RightButton" then
+        if IsControlKeyDown() then
+            if not self.is_button then
+                print(ADDON_NAME_COLOR .. "To enable chicken swap, activate 'Click item to use' in options")
+            elseif self.item.ID == CHICKEN then
+                if not self.old_item_ID then return end
+                EquipItemByName(self.old_item_ID, self.slot_ID)
+            else
+                EquipItemByName(CHICKEN, self.slot_ID)
+            end
+        end
+    end
+end
+
+local function OnEvent(self, event, arg1, arg2)
     if event == "UNIT_AURA" then
         if arg1 ~= "player" then return end
-        self:CheckAura()
+        self:AuraCheck()
     elseif event == "BAG_UPDATE_COOLDOWN" then
-        self:CheckItemUsed()
+        self:ItemUsedCheck()
     elseif event == "ITEM_UNLOCKED" then
         if not self.swap_back_trigger then return end
-        EquipItemByName(self.item.ID, self.slotID)
+        EquipItemByName(self.old_item_ID, self.slot_ID)
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
-        if arg1 ~= self.slotID then return end
-        self:UpdateFrame()
-        self:InventoryUpdated()
-        if self.swap_back_trigger and arg2 then
+        if DB.ITEM_GROUP[arg1] ~= self.item_group then return end
+        self:ItemUpdate()
+        self:ItemChanged()
+        if self.swap_back_trigger and arg2 == 1 then
             self.swap_back_trigger = false
         end
-    elseif event == "PLAYER_ENTERING_WORLD" then
-        self:UpdateFrame()
-    elseif event == "PLAYER_DEAD" then
-        self.first_check = false
+    elseif event == "PLAYER_ENTERING_WORLD"
+    or event == "GET_ITEM_INFO_RECEIVED" then
+        if self.item then return end
+        self:ItemUpdate()
     elseif event == "PLAYER_ALIVE" then
         if not self.first_check then return end
         self.first_check = false
-        self:InventoryUpdated()
+        self:ItemChanged()
+    elseif event == "PLAYER_DEAD" then
+        self.first_check = false
+    elseif event == "MODIFIER_STATE_CHANGED" then
+        local mouse_is_down = arg2 == 1
+        self:SetScript("OnMouseDown", mouse_is_down and OnMouseDown or nil)
+        if not self.is_button then
+            self:EnableMouse(mouse_is_down)
+        end
+    elseif event == "PLAYER_REGEN_DISABLED"
+    or event == "PLAYER_REGEN_ENABLED" then
+        self:ToggleVisibility('OnEvent')
     end
 end
 
-local OnMouseDown = function(self, button)
-    if button ~= "LeftButton" then return end
-    if UnitAffectingCombat("player") then
-        print(ADDON_NAME_COLOR .. "Leave combat to swap trinkets")
-        return
-    end
-    if IsShiftKeyDown() then
-        -- shift+left mouse swaps trinkets
-        local slotID = self.slotID == 13 and 14 or 13
-        EquipItemByName(self.item.ID, slotID)
-    elseif IsAltKeyDown() then
-        -- alt+left mouse swaps trinkets with same name: pnl 277 <-> 264
-        local item_name = GetItemInfo(self.item.ID)
-        EquipItemByName(item_name, self.slotID)
-    elseif IsControlKeyDown() then
-        -- ctrl+left mouse reequips current equipped trinket
-        self.swap_back_trigger = true
-        PickupInventoryItem(self.slotID)
-        PutItemInBackpack()
-    end
-end
-
-local newFontOverlay = function(parent)
+local function newFontOverlay(parent)
     local font = parent:CreateFontString(nil, "OVERLAY")
 	font:SetShadowColor(0, 0, 0, 1)
 	font:SetShadowOffset(1, -1)
     return font
 end
 
-local AddTextLayer = function(self)
-    self.itemText = CreateFrame("Frame", nil, self)
-    self.itemText:SetAllPoints()
+local ttt = {"0", "0.0"}
 
-    self.stacksText = newFontOverlay(self.itemText)
-    self.stacksText:SetPoint("TOP", 0, floor(SETTINGS.ICON_SIZE/3))
-    self.stacksText:SetWidth(SETTINGS.ICON_SIZE)
-	self.stacksText:SetJustifyH("CENTER")
+local function AddCooldownText(self)
+    self.cooldown.text = newFontOverlay(self.cooldown)
+    self.cooldown.text:SetPoint("CENTER")
+    self.cooldown:SetScript("OnUpdate", function()
+        if not self.cooldown_current_end then return end
+        local diff = self.cooldown_current_end - GetTime()
+        if diff < 0.1 then
+            self.cooldown_current_end = nil
+            self.cooldown.text:SetText()
+        else
+            self.cooldown.text:SetFormattedText(PRECISION_FORMAT[SWITCHES.SHOW_DECIMALS], diff)
+        end
+    end)
+end
 
-    self.ilvl_text = newFontOverlay(self.itemText)
+local function AddTextLayer(self)
+    self.text_overlay = CreateFrame("Frame", nil, self)
+    self.text_overlay:SetAllPoints()
+
+    self.stacks_text = newFontOverlay(self.text_overlay)
+    self.stacks_text:SetWidth(self.settings.ICON_SIZE)
+
+    self.ilvl_text = newFontOverlay(self.text_overlay)
     self.ilvl_text:SetPoint("BOTTOMRIGHT", 0, 2)
 end
 
-local RedrawFrame = function(self)
-    self:SetSize(SETTINGS.ICON_SIZE, SETTINGS.ICON_SIZE)
+local function setnewfont(text, settings, key)
+    if not text then return end
+    local fontsize = settings.ICON_SIZE / 100 * (settings[key]) + 1
+    text:SetFont(FONT, floor(fontsize), "OUTLINE")
+end
 
-    local pos = COORDS[self.slotID]
-    self:SetPoint("CENTER", pos.x(), pos.y())
+local function RedrawFrame(self)
+    self:SetSize(self.settings.ICON_SIZE, self.settings.ICON_SIZE)
+    self:SetPoint("CENTER", self.settings.POS_X, self.settings.POS_Y)
 
-    local zoom = SETTINGS.ZOOM / 100
+    local zoom = self.settings.ZOOM / 100
     local mooz = 1 - zoom
     self.texture:SetTexCoord(zoom, zoom, zoom, mooz, mooz, zoom, mooz, mooz)
 
-    local border_margin = SETTINGS.BORDER_MARGIN
+    local border_margin = self.settings.BORDER_MARGIN
     self.border:SetPoint("TOPLEFT", self, -border_margin, border_margin)
     self.border:SetPoint("BOTTOMRIGHT", self, border_margin, -border_margin)
-    self.border:SetBackdrop({
-        edgeFile = BORDER_TEXTURE,
-        tile = true,
-        edgeSize = SETTINGS.EDGE_SIZE,
-    })
+    BORDER_WEAK.edgeSize = self.settings.EDGE_SIZE
+    self.border:SetBackdrop(BORDER_WEAK)
     self.border:SetBackdropBorderColor(0, 0, 0, 1)
 
-    self.stacksText:SetFont(FONT, floor(SETTINGS.ICON_SIZE/2), "OUTLINE")
-    self.ilvl_text:SetFont(FONT, floor(SETTINGS.ICON_SIZE/4), "OUTLINE")
+    setnewfont(self.stacks_text, self.settings, "STACKS_SIZE")
+    setnewfont(self.ilvl_text, self.settings, "ILVL_SIZE")
+    setnewfont(self.cooldown.text, self.settings, "CD_SIZE")
+
+    if self.settings.SHOW_ILVL ~= 0 then
+        self.ilvl_text:Show()
+    else
+        self.ilvl_text:Hide()
+    end
+
+    if SWITCHES.STACKS_BOTTOM ~= 0 then
+        self.stacks_text:SetPoint("CENTER", 0, -self.settings.ICON_SIZE/2)
+    else
+        self.stacks_text:SetPoint("CENTER", 0, self.settings.ICON_SIZE/2)
+    end
+
+    self:ToggleVisibility('RedrawFrame')
 end
 
-local create_new_item = function(slotID)
-    local self = CreateFrame("Frame", ADDON_NAME..slotID)
+local function PlayerInCombat()
+    return UnitAffectingCombat("player") or UnitGUID("boss1")
+end
+
+local function ToggleVisibility(self)
+    if not self.item or self.is_button and InCombatLockdown() then return end
+
+    if self.settings.SHOW == 0
+    or SWITCHES.COMBAT_ONLY ~= 0 and not PlayerInCombat()
+    or SWITCHES.HIDE_READY ~= 0 and not self.is_button and not self.cooldown_current_end then
+        self:Hide()
+    else
+        self:Show()
+    end
+end
+
+local function AddFunctions(self)
+    self.ApplyItemCD = ApplyItemCD
+    self.AuraCheck = AuraCheck
+    self.ItemBuffApplied = ItemBuffApplied
+    self.ItemBuffFaded = ItemBuffFaded
+    self.ItemChanged = ItemChanged
+    self.ItemUsedCheck = ItemUsedCheck
+    self.ItemUpdate = ItemUpdate
+    self.RedrawFrame = RedrawFrame
+    self.ResetFrame = ResetFrame
+    self.ToggleVisibility = ToggleVisibility
+
+    self:RegisterEvent("BAG_UPDATE_COOLDOWN")
+    self:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+    self:RegisterEvent("ITEM_UNLOCKED")
+    self:RegisterEvent("MODIFIER_STATE_CHANGED")
+    self:RegisterEvent("PLAYER_ALIVE")
+    self:RegisterEvent("PLAYER_DEAD")
+    self:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    self:RegisterEvent("PLAYER_REGEN_DISABLED")
+    self:RegisterEvent("PLAYER_REGEN_ENABLED")
+    self:RegisterEvent("UNIT_AURA")
+
+    self:SetScript("OnEvent", OnEvent)
+    self:SetScript("OnMouseDown", OnMouseDown)
+end
+
+local function CreateNewItemFrame(slot_ID)
+    local self
+    if SWITCHES.USE_ON_CLICK ~= 0 then
+        self = CreateFrame("Button", ADDON_NAME..slot_ID, UIParent, "SecureActionButtonTemplate")
+        self:SetAttribute("type1", "macro")
+        self:SetAttribute("macrotext1", "/use " .. slot_ID)
+        self.is_button = true
+    else
+        self = CreateFrame("Frame", ADDON_NAME..slot_ID, UIParent)
+    end
+
+    self.slot_ID = slot_ID
+    self.item_group = DB.ITEM_GROUP[slot_ID]
+    self.item_proc_type = DB.ITEM_PROC_TYPE[slot_ID]
+    self.first_check = true
+    self.settings = SETTINGS.ITEMS[slot_ID]
 
     self.texture = self:CreateTexture(nil, "OVERLAY")
     self.texture:SetAllPoints()
     self.texture:SetTexture("Interface/Icons/Trade_Engineering")
 
-    self.cooldown = CreateFrame("Cooldown", "Trinket"..slotID.."Cooldown", self, "CooldownFrameTemplate")
+    self.cooldown = CreateFrame("Cooldown", "Trinket"..slot_ID.."Cooldown", self, "CooldownFrameTemplate")
     self.cooldown:SetAllPoints()
+    if not OmniCC then AddCooldownText(self) end
 
     self.border = CreateFrame("Frame", nil, self)
     self.border:SetFrameStrata("MEDIUM")
 
     AddTextLayer(self)
-
-    self.slotID = slotID
-    self.nameID = "TRINKET"..slotID
-    self.first_check = true
-    self.UpdateFrame = UpdateFrame
-    self.ApplyItemCD = ApplyItemCD
-    self.InventoryUpdated = InventoryUpdated
-    self.ResetFrame = ResetFrame
-    self.CheckAura = CheckAura
-    self.CheckItemUsed = CheckItemUsed
-    self.ItemBuffFaded = ItemBuffFaded
-    self.ItemBuffApplied = ItemBuffApplied
-    self.RedrawFrame = RedrawFrame
-
-    self:RedrawFrame()
-
-    self:RegisterEvent("BAG_UPDATE_COOLDOWN")
-    self:RegisterEvent("ITEM_UNLOCKED")
-    self:RegisterEvent("PLAYER_ALIVE")
-    self:RegisterEvent("PLAYER_DEAD")
-    self:RegisterEvent("PLAYER_ENTERING_WORLD")
-    self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-    self:RegisterEvent("UNIT_AURA")
-    self:SetScript("OnEvent", OnEvent)
-    self:SetScript("OnMouseDown", OnMouseDown)
-    self:EnableMouse(true)
-
-    if SETTINGS[self.nameID] == 0 then
-        self:Hide()
-    end
+    AddFunctions(self)
+    RedrawFrame(self)
 
     return self
 end
 
+local function update_settings(svars_table, settings_table)
+    if not svars_table then return end
+    for old_table_key, _ in pairs(settings_table) do
+        local new_table_value = svars_table[old_table_key]
+        if new_table_value then
+            settings_table[old_table_key] = new_table_value
+        end
+    end
+end
 
 function ADDON:OnEvent(event, arg1)
 	if event == "ADDON_LOADED" then
         if arg1 ~= ADDON_NAME then return end
 
-        local t = _G[ADDON_PROFILE]
-        if t then
-            for key, _ in pairs(SETTINGS) do
-                SETTINGS[key] = t[key] == true and 1 or t[key] or 0
+        local svars = _G[ADDON_PROFILE]
+        if svars then
+            for item_slot_id, settings_item in pairs(SETTINGS.ITEMS) do
+                update_settings(svars.ITEMS[item_slot_id], settings_item)
             end
+            update_settings(svars.SWITCHES, SWITCHES)
         end
         _G[ADDON_PROFILE] = SETTINGS
 
-        FRAMES[13] = create_new_item(13)
-        FRAMES[14] = create_new_item(14)
+        for _, slot_ID in ipairs(self.ITEMS_TO_TRACK) do
+            FRAMES[slot_ID] = CreateNewItemFrame(slot_ID)
+        end
 	end
 end
 
 ADDON:RegisterEvent("ADDON_LOADED")
 ADDON:SetScript("OnEvent", ADDON.OnEvent)
+
+SLASH_RIDEPAD_TRINKETS1 = "/tcd"
+function SlashCmdList.RIDEPAD_TRINKETS(arg)
+    if arg == "p" or arg == "cpu" then
+        if GetCVarInfo('scriptProfile') == "0" then
+            print(ADDON_NAME_COLOR .. "To check cpu usage, enable scriptProfile and reload")
+            return
+        end
+        UpdateAddOnCPUUsage()
+        local msg = ADDON_NAME_COLOR .. "Total seconds in addon:"
+        msg = format("%s\n%.3fs", msg, GetAddOnCPUUsage(ADDON_NAME) / 1000)
+        for _, frame in pairs(FRAMES) do
+            local t, c = GetFrameCPUUsage(frame)
+            msg = format("%s\n%.3fs | %d function calls", msg, t / 1000, c)
+        end
+        print(msg)
+    end
+end
