@@ -1,5 +1,5 @@
 # TrinketCDs v2.0.0
- ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_main.png)
+ ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_beta.png)
  - Full database of WotLK trinkets.
  - Ashen rings, cloak, weapon, boots and belt enchants.
  - Buff duration, stacks, cooldown.
@@ -14,25 +14,25 @@
  - Extract folder into `<WoW Folder>/Interface/Addons/` folder.
 
 # All items preview:
- ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_all.png)
+ ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_all.png)
 
 # Check in game options for settings:
- ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_options1.png)
- ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_options2.png)
+ ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_options1.png)
+ ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_options2.png)
 
 # Left mouse click preview:
  **Default iCD vs 30 sec forced**
 ## Alt-click:
- ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_alt.gif)
- ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_alt30.gif)
+ ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_swap_alt.gif)
+ ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_swap_alt30.gif)
  - Swaps for trinket with same name, but different ilvl (if exists in bag).
 
 ## Shift-click:
- ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_shift.gif)
- ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_shift30.gif)
+ ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_swap_shift.gif)
+ ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_swap_shift30.gif)
  - Swaps trinkets places to force cooldown for both.
 
 ## Ctrl-click:
- ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_ctrl.gif)
- ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_ctrl30.gif)
+ ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_swap_ctrl.gif)
+ ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_swap_ctrl30.gif)
  - Reequips trinket to force it's cooldown.
