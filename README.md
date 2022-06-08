@@ -1,5 +1,5 @@
 # TrinketCDs v2.0.0
- ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_beta.png)
+ ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/beta/showcase/showcase_main.png)
  - Full database of WotLK trinkets.
  - Ashen rings, cloak, weapon, boots and belt enchants.
  - Buff duration, stacks, cooldown.
