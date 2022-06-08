@@ -333,7 +333,6 @@ DB.ITEM_PROC_TYPE = {
 }
 
 DB.ITEM_GROUP = {
-    [0] = "MainFrame",
     [6] = "Belt",
     [8] = "Boots",
     [10] = "Hands",
@@ -366,7 +365,7 @@ DB.DEFAULT_SETTINGS = {
         [13] = default_item_settings_table(128, -172, 44, 10, 1),
         [14] = default_item_settings_table(174, -172, 44, 10, 1),
 
-         [6] = default_item_settings_table(121,   70, 30,  7, 0),
+         [6] = default_item_settings_table(121,  -70, 30,  7, 0),
         [10] = default_item_settings_table(151,  -70, 30,  7, 0),
          [8] = default_item_settings_table(181,  -70, 30,  7, 0),
         [11] = default_item_settings_table(136, -100, 30,  7, 0),
@@ -377,6 +376,7 @@ DB.DEFAULT_SETTINGS = {
         USE_ON_CLICK = 0,
         HIDE_READY = 0,
         COMBAT_ONLY = 0,
+        STACKS_BOTTOM = 0,
         SHOW_DECIMALS = 0,
         FORCE30 = 0,
     },
