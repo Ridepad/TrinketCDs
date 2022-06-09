@@ -104,7 +104,7 @@ local function ResetFrame(self)
     self.texture:SetDesaturated(0)
     self.cooldown:SetReverse(false)
     self.cooldown:SetCooldown(0, 0)
-    self:ToggleVisibility('ResetFrame')
+    self:ToggleVisibility()
 end
 
 local function ApplyItemCD(self, dur)
@@ -116,7 +116,7 @@ local function ApplyItemCD(self, dur)
     self.cooldown:SetReverse(false)
     self.cooldown:SetCooldown(self.item.cd_start, dur)
     self.cooldown_current_end = self.item.cd_start + dur
-    self:ToggleVisibility('ApplyItemCD')
+    self:ToggleVisibility()
 end
 
 local function ItemUsedCheck(self)
@@ -127,9 +127,9 @@ local function ItemUsedCheck(self)
 
     if cdDur > 30 then
         self.item.CD = cdDur
-        if self.item.ID == CHICKEN and self.old_item_ID
+        if self.item.ID == CHICKEN and self.item_ID_before_chicken
         and GetTime() - cdStart < 5 then
-            EquipItemByName(self.old_item_ID, self.slot_ID)
+            EquipItemByName(self.item_ID_before_chicken, self.slot_ID)
         end
     end
 
@@ -185,7 +185,7 @@ local function ItemBuffApplied(self, duration, expirationTime)
     self.cooldown:SetReverse(true)
     self.cooldown:SetCooldown(cd_start, duration)
     self.cooldown_current_end = expirationTime
-    self:ToggleVisibility('ItemBuffApplied')
+    self:ToggleVisibility()
 end
 
 local function ItemBuffFaded(self)
@@ -230,8 +230,12 @@ local function OnUpdate(self)
 end
 
 local function ItemUpdate(self)
+    local old_ID = self.item and self.item.ID
+    if old_ID and old_ID ~= CHICKEN then
+        self.item_ID_before_chicken = old_ID
+    end
+
     local item = newItem(self)
-    self.old_item_ID = self.item and self.item.ID
     self.item = item
     if not item then return self:Hide() end
 
@@ -274,7 +278,12 @@ local function OnMouseDown(self, button)
     if InCombatLockdown() then
         print(ADDON_NAME_COLOR .. "Leave combat to swap items")
     elseif button == "LeftButton" then
-        if IsShiftKeyDown() then
+        if IsControlKeyDown() then
+            -- Ctrl+left mouse reequips item to force it's cooldown
+            self.swap_back_item_id = self.item.ID
+            PickupInventoryItem(self.slot_ID)
+            PutItemInBackpack()
+        elseif IsShiftKeyDown() then
             -- Shift+left mouse swaps trinkets to force cooldown of both
             if self.slot_ID == 13 then
                 EquipItemByName(self.item.ID, 14)
@@ -285,20 +294,14 @@ local function OnMouseDown(self, button)
             -- Alt+left mouse swaps to an item with the same name: pnl 277 <-> 264
             local item_name = GetItemInfo(self.item.ID)
             EquipItemByName(item_name, self.slot_ID)
-        elseif IsControlKeyDown() then
-            -- Ctrl+left mouse reequips item to force it's cooldown
-            self.old_item_ID = self.item.ID
-            self.swap_back_trigger = true
-            PickupInventoryItem(self.slot_ID)
-            PutItemInBackpack()
         end
     elseif button == "RightButton" then
         if IsControlKeyDown() then
             if not self.is_button then
                 print(ADDON_NAME_COLOR .. "To enable chicken swap, activate 'Click item to use' in options")
             elseif self.item.ID == CHICKEN then
-                if not self.old_item_ID then return end
-                EquipItemByName(self.old_item_ID, self.slot_ID)
+                if not self.item_ID_before_chicken then return end
+                EquipItemByName(self.item_ID_before_chicken, self.slot_ID)
             else
                 EquipItemByName(CHICKEN, self.slot_ID)
             end
@@ -313,23 +316,26 @@ local function OnEvent(self, event, arg1, arg2)
     elseif event == "BAG_UPDATE_COOLDOWN" then
         self:ItemUsedCheck()
     elseif event == "ITEM_UNLOCKED" then
-        if not self.swap_back_trigger then return end
-        EquipItemByName(self.old_item_ID, self.slot_ID)
+        if not self.swap_back_item_id then return end
+        EquipItemByName(self.swap_back_item_id, self.slot_ID)
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
         if DB.ITEM_GROUP[arg1] ~= self.item_group then return end
         self:ItemUpdate()
         self:ItemChanged()
-        if self.swap_back_trigger and arg2 == 1 then
-            self.swap_back_trigger = false
+        if self.swap_back_item_id and arg2 == 1 then
+            self.swap_back_item_id = false
         end
     elseif event == "PLAYER_ENTERING_WORLD"
     or event == "GET_ITEM_INFO_RECEIVED" then
         if self.item then return end
         self:ItemUpdate()
     elseif event == "PLAYER_ALIVE" then
-        if not self.first_check then return end
-        self.first_check = false
-        self:ItemChanged()
+        if self.first_check then
+            self.first_check = false
+            self:ItemChanged()
+        else
+            self:ToggleVisibility()
+        end
     elseif event == "PLAYER_DEAD" then
         self.first_check = false
     elseif event == "MODIFIER_STATE_CHANGED" then
@@ -340,7 +346,7 @@ local function OnEvent(self, event, arg1, arg2)
         end
     elseif event == "PLAYER_REGEN_DISABLED"
     or event == "PLAYER_REGEN_ENABLED" then
-        self:ToggleVisibility('OnEvent')
+        self:ToggleVisibility()
     end
 end
 
@@ -351,15 +357,15 @@ local function newFontOverlay(parent)
     return font
 end
 
-local ttt = {"0", "0.0"}
-
 local function AddCooldownText(self)
     self.cooldown.text = newFontOverlay(self.cooldown)
     self.cooldown.text:SetPoint("CENTER")
     self.cooldown:SetScript("OnUpdate", function()
         if not self.cooldown_current_end then return end
         local diff = self.cooldown_current_end - GetTime()
-        if diff < 0.1 then
+        if diff > 99 then
+            self.cooldown.text:SetFormattedText("%dm", diff/60)
+        elseif diff < 0.1 then
             self.cooldown_current_end = nil
             self.cooldown.text:SetText()
         else
@@ -416,7 +422,7 @@ local function RedrawFrame(self)
         self.stacks_text:SetPoint("CENTER", 0, self.settings.ICON_SIZE/2)
     end
 
-    self:ToggleVisibility('RedrawFrame')
+    self:ToggleVisibility()
 end
 
 local function PlayerInCombat()

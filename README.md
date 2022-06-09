@@ -1,9 +1,9 @@
-# TrinketCDs v2.0.0
+# TrinketCDs v2.0.1
 
 ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_main.png)
 
 - Full database of WotLK trinkets.
-- Ashen rings, cloak, weapon, boots and belt enchants.
+- Ashen rings, cloak, weapon, hands, boots and belt enchants.
 - Buff duration, stacks, cooldown.
 - Doesn't depend on combat log.
 - Cooldown on login and after inventory change.
@@ -35,12 +35,12 @@ Ctrl+right mouse click to swap to chicken, left click to use.
 
 Default iCD vs 30 sec forced
 
-## Alt-click:
+## Ctrl-click:
 
-Swaps for trinket with same name, but different ilvl (if exists in bag).
+Reequips trinket to force it's cooldown.
 
-![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_alt.gif)
-![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_alt30.gif)
+![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_ctrl.gif)
+![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_ctrl30.gif)
 
 ## Shift-click:
 
@@ -49,9 +49,9 @@ Swaps trinkets places to force cooldown for both.
 ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_shift.gif)
 ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_shift30.gif)
 
-## Ctrl-click:
+## Alt-click:
 
-Reequips trinket to force it's cooldown.
+Swaps for trinket with same name, but different ilvl (if exists in bag).
 
-![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_ctrl.gif)
-![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_ctrl30.gif)
+![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_alt.gif)
+![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_swap_alt30.gif)
