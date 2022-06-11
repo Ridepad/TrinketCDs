@@ -1,4 +1,4 @@
-# TrinketCDs v2.0.1
+# TrinketCDs v2.0.2
 
 ![](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_main.png)
 

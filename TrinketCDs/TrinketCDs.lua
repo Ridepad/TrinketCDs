@@ -506,11 +506,21 @@ end
 
 local function update_settings(svars_table, settings_table)
     if not svars_table then return end
-    for old_table_key, _ in pairs(settings_table) do
+
+    for old_table_key in pairs(settings_table) do
         local new_table_value = svars_table[old_table_key]
         if new_table_value then
             settings_table[old_table_key] = new_table_value
         end
+    end
+end
+
+local function update_nested_settings(svars, key)
+    local _svars = svars[key]
+    if not _svars then return end
+
+    for item_slot_id, settings_item in pairs(SETTINGS[key]) do
+        update_settings(_svars[item_slot_id], settings_item)
     end
 end
 
@@ -520,9 +530,7 @@ function ADDON:OnEvent(event, arg1)
 
         local svars = _G[ADDON_PROFILE]
         if svars then
-            for item_slot_id, settings_item in pairs(SETTINGS.ITEMS) do
-                update_settings(svars.ITEMS[item_slot_id], settings_item)
-            end
+            update_nested_settings(svars, "ITEMS")
             update_settings(svars.SWITCHES, SWITCHES)
         end
         _G[ADDON_PROFILE] = SETTINGS
