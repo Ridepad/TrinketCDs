@@ -28,7 +28,7 @@ Fast jump: [Install](#install) | [Preview](#all-items-preview) | [Perfomance](#p
     Fixed visibility out of combat after wipe
 
     Removed unnecessary code
-**Full Changelog:** [2.0.1...2.0.2](https://github.com/Ridepad/TrinketCDs/compare/2.0.0-beta.2...2.0.1)
+**Full Changelog:** [2.0.0...2.0.1](https://github.com/Ridepad/TrinketCDs/compare/2.0.0-beta.2...2.0.1)
 </details>
 
 <details><summary>2.0.0</summary>
@@ -50,7 +50,7 @@ Fast jump: [Install](#install) | [Preview](#all-items-preview) | [Perfomance](#p
     Added option to change stacks text to the bottom.
 
     Improved min/max values for x,y frame positions.
-**Full Changelog:** [2.0.1...2.0.2](https://github.com/Ridepad/TrinketCDs/compare/1.4.0...2.0.0-beta.2)
+**Full Changelog:** [1.4.0...2.0.0](https://github.com/Ridepad/TrinketCDs/compare/1.4.0...2.0.0-beta.2)
 </details>
 </details>
 
