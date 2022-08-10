@@ -299,7 +299,7 @@ DB.ASHEN_RINGS = {
     [52572] = 72412,
 }
 
-DB.enchants = {
+DB.ENCHANTS = {
     ["3601"] = 54793, -- Frag Belt
     ["3604"] = 54758, -- Hyperspeed Accelerators
     ["3606"] = 54861, -- Nitro Boosts
@@ -307,9 +307,11 @@ DB.enchants = {
     ["3728"] = 55767, -- Darkglow
     ["3730"] = 55775, -- Swordguard
     ["3790"] = 59626, -- Black Magic
-    ["2673"] = 27984, -- Mongoose
-    ["5392"] = 64579, -- Blood Draining
-    ["5393"] = 20034, -- Crusader
+    ["3789"] = 59620, -- Berserking
+    ["2673"] = 28093, -- Mongoose
+    ["3870"] = 64568, -- Blood Draining
+    ["1900"] = 20007, -- Crusader
+    ["3225"] = 42976, -- Executioner
 }
 
 DB.ITEM_QUALITY = {

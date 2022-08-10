@@ -3,6 +3,8 @@ local ADDON_OPTIONS = "TrinketCDsOptions"
 local ADDON = _G[ADDON_NAME]
 local FRAMES = ADDON.FRAMES
 local SWITCHES = ADDON.SETTINGS.SWITCHES
+local SLIDER_NAME = ADDON_OPTIONS .. "%sSlider%s"
+local EDITBOX_NAME = ADDON_OPTIONS .. "%sEditBox%s"
 
 local OPTIONS_FRAME = CreateFrame("Frame")
 ADDON.OPTIONS = OPTIONS_FRAME
@@ -69,11 +71,11 @@ local SLIDERS = {
 local CB_DEFAULTS_MAIN = {
     USE_ON_CLICK = {
         row = 1,
-        label = "Click item to use (enables chicken swap, requires reload)",
+        label = "Enable item activation with mouse",
     },
     HIDE_READY = {
         row = 2,
-        label = "Hide if ready (doesn't work with option above)",
+        label = "Hide if ready (overwrites option above, requires reload)",
     },
     COMBAT_ONLY = {
         row = 3,
@@ -81,15 +83,17 @@ local CB_DEFAULTS_MAIN = {
     },
     STACKS_BOTTOM = {
         row = 4,
-        label = "Stacks on the bottom of the frame",
+        label = "Move stacks to the bottom of the frame",
     },
     SHOW_DECIMALS = {
         row = 5,
         label = "Show cooldown decimal (for built-in cooldown)",
+        skip = true,
     },
     FORCE30 = {
         row = 6,
         label = "Force 30 seconds iCD on swap",
+        skip = true,
     },
 }
 
@@ -133,7 +137,7 @@ end
 
 local function new_slider(parent_frame, option_name, properties)
     local settings = parent_frame.item_frame.settings
-    local sliderID = ADDON_OPTIONS .. parent_frame.name .. "Slider" .. option_name
+    local sliderID = SLIDER_NAME:format(parent_frame.name, option_name)
     local slider = CreateFrame("Slider", sliderID, parent_frame, "OptionsSliderTemplate")
 
     local y = (properties.row + 2.5) * MARGIN * 2
@@ -149,7 +153,7 @@ local function new_slider(parent_frame, option_name, properties)
 	slider.InfoText:SetJustifyH("CENTER")
     slider.InfoText:SetText(properties.label)
 
-    local EditBoxID = ADDON_OPTIONS .. parent_frame.name .. "EditBox" .. option_name
+    local EditBoxID = EDITBOX_NAME:format(parent_frame.name, option_name)
     slider.EditBox = CreateFrame("EditBox", EditBoxID, slider, "InputBoxTemplate")
 	slider.EditBox:SetPoint("LEFT", slider, "RIGHT", 10, 0)
 	slider.EditBox:SetSize(50, 20)
@@ -191,9 +195,10 @@ local function main_setup_cd(cb, key)
     local properties = CB_DEFAULTS_MAIN[key]
     cb.label:SetText(properties.label)
     cb:SetChecked(SWITCHES[key] ~= 0)
+
     cb:SetScript("OnClick", function(self)
         SWITCHES[key] = self:GetChecked() and 1 or 0
-        redraw_all()
+        if not properties.skip then redraw_all() end
     end)
 end
 
@@ -247,7 +252,7 @@ end
 function OPTIONS_FRAME:OnEvent(event, arg1)
     if arg1 ~= ADDON_NAME then return end
     self:add_main_settings()
-    for _,slot_ID in ipairs(ADDON.ITEMS_TO_TRACK) do
+    for _, slot_ID in ipairs(ADDON.SORTED_ITEMS) do
         self:add_item_settings(slot_ID)
     end
 end

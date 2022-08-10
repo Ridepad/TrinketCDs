@@ -23,10 +23,13 @@ _G[ADDON_NAME] = ADDON
 ADDON.FRAMES = FRAMES
 ADDON.SETTINGS = SETTINGS
 ADDON.ITEM_GROUP = DB.ITEM_GROUP
-ADDON.ITEMS_TO_TRACK = {13, 14, 6, 8, 10, 11, 15, 16}
+ADDON.SORTED_ITEMS = {13, 14, 11, 15, 16, 10, 8, 6}
+local CAN_BE_ACTIVATED = {[13]=true, [14]=true, [10]=true, [8]=true, [6]=true}
 
-local function newTrinket(item_ID)
+local function new_trinket(item_ID)
     local _, _, item_quality, item_level, _, _, _, _, _, item_texture = GetItemInfo(item_ID)
+    if not item_quality then return end
+
     local buff_ID = DB.TRINKET_PROC_ID[item_ID]
     local stacks_ID = DB.TRINKET_PROC_STACKS[buff_ID]
     local buff_IDs = DB.TRINKET_PROC_MULTIBUFF[item_ID]
@@ -48,9 +51,10 @@ local function newTrinket(item_ID)
     return item
 end
 
-local function newNotTrinket(item_ID, buff_ID)
+local function new_not_trinket(item_ID, buff_ID)
     if not buff_ID then return end
     local _, _, item_quality, item_level, _, _, _, _, _, item_texture = GetItemInfo(item_ID)
+    if not item_quality then return end
 
     local item = {
         ID = item_ID,
@@ -75,7 +79,7 @@ local function check_other_ring(self)
     end
 end
 
-local function newItem(self)
+local function new_item(self)
     local item_ID = GetInventoryItemID("player", self.slot_ID)
     if not item_ID then return end
 
@@ -83,18 +87,18 @@ local function newItem(self)
     if item then return item end
 
     if self.item_proc_type == "trinket" then
-        return newTrinket(item_ID)
+        return new_trinket(item_ID)
     elseif self.item_proc_type == "ring" then
         local buff_ID = DB.ASHEN_RINGS[item_ID]
         if not buff_ID then
             item_ID, buff_ID = check_other_ring(self)
         end
-        return newNotTrinket(item_ID, buff_ID)
+        return new_not_trinket(item_ID, buff_ID)
     elseif self.item_proc_type == "enchant_usable" then
         local item_link = GetInventoryItemLink("player", self.slot_ID)
         local ench_ID = item_link:match("%d:(%d+)")
-        local buff_ID = DB.enchants[ench_ID]
-        return newNotTrinket(item_ID, buff_ID)
+        local buff_ID = DB.ENCHANTS[ench_ID]
+        return new_not_trinket(item_ID, buff_ID)
     end
 end
 
@@ -229,13 +233,25 @@ local function OnUpdate(self)
     end
 end
 
+local function ToggleButton(self)
+    if not self.button then return end
+    -- if not self.button or InCombatLockdown() then return end
+
+    if SWITCHES.USE_ON_CLICK ~= 0 and self.is_usable
+    or self.item and self.item.ID == CHICKEN then
+        self.button:Show()
+    else
+        self.button:Hide()
+    end
+end
+
 local function ItemUpdate(self)
     local old_ID = self.item and self.item.ID
     if old_ID and old_ID ~= CHICKEN then
         self.item_ID_before_chicken = old_ID
     end
 
-    local item = newItem(self)
+    local item = new_item(self)
     self.item = item
     if not item then return self:Hide() end
 
@@ -252,6 +268,7 @@ local function ItemUpdate(self)
     self:ResetFrame()
     self:AuraCheck(true)
     self:ItemUsedCheck()
+    self:ToggleButton()
 end
 
 local function ItemChanged(self)
@@ -275,7 +292,9 @@ local function ItemChanged(self)
 end
 
 local function OnMouseDown(self, button)
+    self = self.parent or self
     if InCombatLockdown() then
+        if not IsModifierKeyDown() then return end
         print(ADDON_NAME_COLOR .. "Leave combat to swap items")
     elseif button == "LeftButton" then
         if IsControlKeyDown() then
@@ -297,9 +316,7 @@ local function OnMouseDown(self, button)
         end
     elseif button == "RightButton" then
         if IsControlKeyDown() then
-            if not self.is_button then
-                print(ADDON_NAME_COLOR .. "To enable chicken swap, activate 'Click item to use' in options")
-            elseif self.item.ID == CHICKEN then
+            if self.item.ID == CHICKEN then
                 if not self.item_ID_before_chicken then return end
                 EquipItemByName(self.item_ID_before_chicken, self.slot_ID)
             else
@@ -315,6 +332,11 @@ local function OnEvent(self, event, arg1, arg2)
         self:AuraCheck()
     elseif event == "BAG_UPDATE_COOLDOWN" then
         self:ItemUsedCheck()
+    elseif event == "MODIFIER_STATE_CHANGED" then
+        if self.button and self.button:IsVisible() then return end
+        self:EnableMouse(arg2 == 1)
+    elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+        self:ToggleVisibility()
     elseif event == "ITEM_UNLOCKED" then
         if not self.swap_back_item_id then return end
         EquipItemByName(self.swap_back_item_id, self.slot_ID)
@@ -325,32 +347,19 @@ local function OnEvent(self, event, arg1, arg2)
         if self.swap_back_item_id and arg2 == 1 then
             self.swap_back_item_id = false
         end
-    elseif event == "PLAYER_ENTERING_WORLD"
-    or event == "GET_ITEM_INFO_RECEIVED" then
+    elseif event == "PLAYER_ENTERING_WORLD" then
         if self.item then return end
         self:ItemUpdate()
-    elseif event == "PLAYER_ALIVE" then
-        if self.first_check then
-            self.first_check = false
-            self:ItemChanged()
-        else
-            self:ToggleVisibility()
+    elseif event == "UNIT_NAME_UPDATE" then
+        if arg1 ~= "player" then return end
+        if not self.item then
+            self:ItemUpdate()
         end
-    elseif event == "PLAYER_DEAD" then
-        self.first_check = false
-    elseif event == "MODIFIER_STATE_CHANGED" then
-        local mouse_is_down = arg2 == 1
-        self:SetScript("OnMouseDown", mouse_is_down and OnMouseDown or nil)
-        if not self.is_button then
-            self:EnableMouse(mouse_is_down)
-        end
-    elseif event == "PLAYER_REGEN_DISABLED"
-    or event == "PLAYER_REGEN_ENABLED" then
-        self:ToggleVisibility()
+        self:ItemChanged()
     end
 end
 
-local function newFontOverlay(parent)
+local function new_font_overlay(parent)
     local font = parent:CreateFontString(nil, "OVERLAY")
 	font:SetShadowColor(0, 0, 0, 1)
 	font:SetShadowOffset(1, -1)
@@ -358,12 +367,12 @@ local function newFontOverlay(parent)
 end
 
 local function AddCooldownText(self)
-    self.cooldown.text = newFontOverlay(self.cooldown)
+    self.cooldown.text = new_font_overlay(self.cooldown)
     self.cooldown.text:SetPoint("CENTER")
     self.cooldown:SetScript("OnUpdate", function()
         if not self.cooldown_current_end then return end
         local diff = self.cooldown_current_end - GetTime()
-        if diff > 99 then
+        if diff > 100 then
             self.cooldown.text:SetFormattedText("%dm", diff/60)
         elseif diff < 0.1 then
             self.cooldown_current_end = nil
@@ -378,23 +387,20 @@ local function AddTextLayer(self)
     self.text_overlay = CreateFrame("Frame", nil, self)
     self.text_overlay:SetAllPoints()
 
-    self.stacks_text = newFontOverlay(self.text_overlay)
+    self.stacks_text = new_font_overlay(self.text_overlay)
     self.stacks_text:SetWidth(self.settings.ICON_SIZE)
 
-    self.ilvl_text = newFontOverlay(self.text_overlay)
+    self.ilvl_text = new_font_overlay(self.text_overlay)
     self.ilvl_text:SetPoint("BOTTOMRIGHT", 0, 2)
 end
 
-local function setnewfont(text, settings, key)
+local function set_new_font(text, settings, key)
     if not text then return end
     local fontsize = settings.ICON_SIZE / 100 * (settings[key]) + 1
     text:SetFont(FONT, floor(fontsize), "OUTLINE")
 end
 
 local function RedrawFrame(self)
-    self:SetSize(self.settings.ICON_SIZE, self.settings.ICON_SIZE)
-    self:SetPoint("CENTER", self.settings.POS_X, self.settings.POS_Y)
-
     local zoom = self.settings.ZOOM / 100
     local mooz = 1 - zoom
     self.texture:SetTexCoord(zoom, zoom, zoom, mooz, mooz, zoom, mooz, mooz)
@@ -406,22 +412,25 @@ local function RedrawFrame(self)
     self.border:SetBackdrop(BORDER_WEAK)
     self.border:SetBackdropBorderColor(0, 0, 0, 1)
 
-    setnewfont(self.stacks_text, self.settings, "STACKS_SIZE")
-    setnewfont(self.ilvl_text, self.settings, "ILVL_SIZE")
-    setnewfont(self.cooldown.text, self.settings, "CD_SIZE")
-
     if self.settings.SHOW_ILVL ~= 0 then
         self.ilvl_text:Show()
     else
         self.ilvl_text:Hide()
     end
 
-    if SWITCHES.STACKS_BOTTOM ~= 0 then
-        self.stacks_text:SetPoint("CENTER", 0, -self.settings.ICON_SIZE/2)
-    else
-        self.stacks_text:SetPoint("CENTER", 0, self.settings.ICON_SIZE/2)
-    end
+    local stacks_pos = SWITCHES.STACKS_BOTTOM == 0 and 1 or -1
+    self.stacks_text:SetPoint("CENTER", 0, self.settings.ICON_SIZE/2 * stacks_pos)
 
+    if self.button and InCombatLockdown() then return end
+
+    set_new_font(self.stacks_text, self.settings, "STACKS_SIZE")
+    set_new_font(self.ilvl_text, self.settings, "ILVL_SIZE")
+    set_new_font(self.cooldown.text, self.settings, "CD_SIZE")
+
+    self:SetSize(self.settings.ICON_SIZE, self.settings.ICON_SIZE)
+    self:SetPoint("CENTER", self.settings.POS_X, self.settings.POS_Y)
+
+    self:ToggleButton()
     self:ToggleVisibility()
 end
 
@@ -430,11 +439,11 @@ local function PlayerInCombat()
 end
 
 local function ToggleVisibility(self)
-    if not self.item or self.is_button and InCombatLockdown() then return end
+    if not self.item or self.button and InCombatLockdown() then return end
 
     if self.settings.SHOW == 0
     or SWITCHES.COMBAT_ONLY ~= 0 and not PlayerInCombat()
-    or SWITCHES.HIDE_READY ~= 0 and not self.is_button and not self.cooldown_current_end then
+    or SWITCHES.HIDE_READY ~= 0 and not self.cooldown_current_end then
         self:Hide()
     else
         self:Show()
@@ -452,38 +461,37 @@ local function AddFunctions(self)
     self.RedrawFrame = RedrawFrame
     self.ResetFrame = ResetFrame
     self.ToggleVisibility = ToggleVisibility
+    self.ToggleButton = ToggleButton
 
     self:RegisterEvent("BAG_UPDATE_COOLDOWN")
-    self:RegisterEvent("GET_ITEM_INFO_RECEIVED")
     self:RegisterEvent("ITEM_UNLOCKED")
     self:RegisterEvent("MODIFIER_STATE_CHANGED")
-    self:RegisterEvent("PLAYER_ALIVE")
-    self:RegisterEvent("PLAYER_DEAD")
     self:RegisterEvent("PLAYER_ENTERING_WORLD")
     self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     self:RegisterEvent("PLAYER_REGEN_DISABLED")
     self:RegisterEvent("PLAYER_REGEN_ENABLED")
     self:RegisterEvent("UNIT_AURA")
+    self:RegisterEvent("UNIT_NAME_UPDATE")
 
     self:SetScript("OnEvent", OnEvent)
     self:SetScript("OnMouseDown", OnMouseDown)
 end
 
 local function CreateNewItemFrame(slot_ID)
-    local self
-    if SWITCHES.USE_ON_CLICK ~= 0 then
-        self = CreateFrame("Button", ADDON_NAME..slot_ID, UIParent, "SecureActionButtonTemplate")
-        self:SetAttribute("type1", "macro")
-        self:SetAttribute("macrotext1", "/use " .. slot_ID)
-        self.is_button = true
-    else
-        self = CreateFrame("Frame", ADDON_NAME..slot_ID, UIParent)
+    local self = CreateFrame("Frame", ADDON_NAME..slot_ID, UIParent)
+
+    if SWITCHES.HIDE_READY == 0 and CAN_BE_ACTIVATED[slot_ID] then
+        self.button = CreateFrame("Button", ADDON_NAME..slot_ID.."Button", self, "SecureActionButtonTemplate")
+        self.button:SetAttribute("type1", "macro")
+        self.button:SetAttribute("macrotext1", "/use " .. slot_ID)
+        self.button:SetAllPoints()
+        self.button:SetScript("OnMouseDown", OnMouseDown)
+        self.button.parent = self
     end
 
     self.slot_ID = slot_ID
     self.item_group = DB.ITEM_GROUP[slot_ID]
     self.item_proc_type = DB.ITEM_PROC_TYPE[slot_ID]
-    self.first_check = true
     self.settings = SETTINGS.ITEMS[slot_ID]
 
     self.texture = self:CreateTexture(nil, "OVERLAY")
@@ -535,7 +543,7 @@ function ADDON:OnEvent(event, arg1)
         end
         _G[ADDON_PROFILE] = SETTINGS
 
-        for _, slot_ID in ipairs(self.ITEMS_TO_TRACK) do
+        for _, slot_ID in ipairs(self.SORTED_ITEMS) do
             FRAMES[slot_ID] = CreateNewItemFrame(slot_ID)
         end
 	end
@@ -548,7 +556,7 @@ SLASH_RIDEPAD_TRINKETS1 = "/tcd"
 function SlashCmdList.RIDEPAD_TRINKETS(arg)
     if arg == "p" or arg == "cpu" then
         if GetCVarInfo('scriptProfile') == "0" then
-            print(ADDON_NAME_COLOR .. "To check cpu usage, enable scriptProfile and reload")
+            print(ADDON_NAME_COLOR .. "To check cpu usage, type in chat and reload\n|cFFFFFF00/console scriptProfile 1|r")
             return
         end
         UpdateAddOnCPUUsage()
@@ -559,5 +567,11 @@ function SlashCmdList.RIDEPAD_TRINKETS(arg)
             msg = format("%s\n%.3fs | %d function calls", msg, t / 1000, c)
         end
         print(msg)
+    elseif arg == "o" or arg == "opt" or arg == "options" or arg == "config" then
+		InterfaceOptionsFrame_OpenToCategory(ADDON_NAME)
+    else
+        print(ADDON_NAME_COLOR .. "Available commands:")
+        print("|cFFFFFF00o|r || |cFFFFFF00opt|r || |cFFFFFF00options|r || |cFFFFFF00config|r - opens options window")
+        print("|cFFFFFF00p|r || |cFFFFFF00cpu|r - prints cpu usage")
     end
 end

@@ -1,4 +1,4 @@
-# TrinketCDs v2.0.2
+# TrinketCDs 2.1.0
 
 Fast jump: [Install](#install) | [Preview](#all-items-preview) | [Perfomance](#perfomance) | [Options](#options)
 
@@ -13,6 +13,19 @@ Fast jump: [Install](#install) | [Preview](#all-items-preview) | [Perfomance](#p
 - Caches cooldown even if trinket was unequiped after proc (useful if server has different iCD on equip).
 
 <details><summary><b>Changelog</b></summary>
+<details><summary>2.1.9</summary>
+
+    Improved button functionality
+
+    Chicken swap works without any additional set up
+
+    Fixed wrong weapon enchantments IDs
+
+    Added Berserking
+
+    Fixed bug on 1st game launch without item cache from server
+**Full Changelog:** [2.0.2...2.1.0](https://github.com/Ridepad/TrinketCDs/compare/2.0.2...2.1.0)
+</details>
 <details><summary>2.0.2</summary>
 
     Fixed settings defaults
