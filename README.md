@@ -13,7 +13,7 @@ Fast jump: [Install](#install) | [Preview](#all-items-preview) | [Perfomance](#p
 - Caches cooldown even if trinket was unequiped after proc (useful if server has different iCD on equip).
 
 <details><summary><b>Changelog</b></summary>
-<details><summary>2.1.9</summary>
+<details><summary>2.1.0</summary>
 
     Improved button functionality
 
