@@ -1,6 +1,6 @@
 # TrinketCDs 2.1.0
 
-Fast jump: [Install](#install) | [Preview](#all-items-preview) | [Perfomance](#perfomance) | [Options](#options)
+**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
 
 ![Showcase](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_main.png)
 
@@ -11,6 +11,10 @@ Fast jump: [Install](#install) | [Preview](#all-items-preview) | [Perfomance](#p
 - Cooldown on login and after inventory change.
 - Has built-in cooldown text (use [OmniCC](https://www.curseforge.com/wow/addons/omni-cc/files/454434) as alternative).
 - Caches cooldown even if trinket was unequiped after proc (useful if server has different iCD on equip).
+
+## Changelog
+
+**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
 
 <details><summary><b>Changelog</b></summary>
 <details><summary>2.1.0</summary>
@@ -69,10 +73,14 @@ Fast jump: [Install](#install) | [Preview](#all-items-preview) | [Perfomance](#p
 
 ## Install
 
+**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
+
 - [Download](https://github.com/Ridepad/TrinketCDs/releases/latest).
 - Extract `TrinketCDs` folder into `<WoW Folder>/Interface/Addons/` folder.
 
 ## Preview
+
+**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
 
 ### All items preview
 
@@ -80,7 +88,7 @@ Fast jump: [Install](#install) | [Preview](#all-items-preview) | [Perfomance](#p
 
 ### Chicken swap preview
 
-Ctrl+right mouse click to swap to chicken, left mouse click to use (if `Click item to use` is enabled).
+Ctrl+Right mouse click to swap to chicken, left mouse click to use. (Ctrl+Right click again to swap back)
 > Automatically swaps back to previous trinket after chicken is used, regardless of how chicken was equipped.
 
 ![Showcase chicken](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_chicken.gif)
@@ -112,11 +120,15 @@ Swaps for trinket with same name, but different ilvl (if exists in bag).
 
 ## Perfomance
 
+**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
+
 CPU usage from LoD kill
 
 ![Showcase cpu usage](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_cpu_usage.png)
 
 ## Options
+
+**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
 
 Check in game options for settings
 
