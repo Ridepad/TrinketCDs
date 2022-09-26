@@ -1,11 +1,12 @@
-# TrinketCDs 2.1.0
+# TrinketCDs
 
 **Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
 
 ![Showcase](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_main.png)
 
-- Full database of WotLK trinkets.
+- Full database of WotLK/TBC trinkets.
 - Ashen rings, cloak, weapon, hands, boots and belt enchants.
+- Works both on 3.3 and 3.4 WotLK versions.
 - Doesn't depend on combat log.
 - Buff duration, stacks, cooldown.
 - Cooldown on login and after inventory change.
@@ -17,6 +18,45 @@
 **Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
 
 <details><summary><b>Changelog</b></summary>
+<details><summary>2.2.0</summary>
+
+    Moved all "Show" checkboxes into main options panel
+
+    Functions used in combat are now local for better perfomance
+
+    Fixed cooldown for enchants
+
+    Added TBC trinkets
+
+    Fixed a bug where ring frame was hidden when top ring slot was empty
+
+    Fixed a bug where ring frame went on cooldown, if a ring was changed in a different slot
+
+    Fixed a bug where item frame whouldn't be updated, if a new equiped item has the same ID but different enchant
+
+    WotLK Classic ready:
+
+    Removed CD swipe texture
+
+    Fixed critical error on addon load, that bricked whole addon
+
+    - Border now requires BackdropTemplate as default template
+
+    Fixed a bug where the frame border was not updating in real time from changing settings
+
+    - SetBackdrop now requires a new table as argument instead of table reference
+
+    Fixed desaturation
+
+    - SetDesaturated now requires true/false instead of 1/nil
+
+    Fixed item reequip with ctrl
+
+    - PLAYER_EQUIPMENT_CHANGED now fired with false/true instead or 1/nil
+
+    - PickupInventoryItem() only checks dafault bag instead of all 5
+**Full Changelog:** [2.1.0...2.2.0](https://github.com/Ridepad/TrinketCDs/compare/2.1.0...2.2.0)
+</details>
 <details><summary>2.1.0</summary>
 
     Improved button functionality

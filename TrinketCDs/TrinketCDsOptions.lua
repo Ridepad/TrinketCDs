@@ -53,17 +53,17 @@ local SLIDERS = {
     },
     ILVL_SIZE = {
         row = 7,
-        label = "Item level font size",
+        label = "Item level font size %",
         min = 0, max = 100, step = 5,
     },
     STACKS_SIZE = {
         row = 8,
-        label = "Stacks font size",
+        label = "Stacks font size %",
         min = 0, max = 100, step = 5,
     },
     CD_SIZE = {
         row = 9,
-        label = "Cooldown font size",
+        label = "Cooldown font size %",
         min = 0, max = 100, step = 5,
     },
 }
@@ -140,7 +140,7 @@ local function new_slider(parent_frame, option_name, properties)
     local sliderID = SLIDER_NAME:format(parent_frame.name, option_name)
     local slider = CreateFrame("Slider", sliderID, parent_frame, "OptionsSliderTemplate")
 
-    local y = (properties.row + 2.5) * MARGIN * 2
+    local y = (properties.row + 1.1) * MARGIN * 2
     slider:SetPoint("TOPLEFT", MARGIN, -y)
     slider:SetSize(250, 15)
     slider:SetMinMaxValues(properties.min, properties.max)
@@ -191,17 +191,6 @@ local function redraw_all()
     end
 end
 
-local function main_setup_cd(cb, key)
-    local properties = CB_DEFAULTS_MAIN[key]
-    cb.label:SetText(properties.label)
-    cb:SetChecked(SWITCHES[key] ~= 0)
-
-    cb:SetScript("OnClick", function(self)
-        SWITCHES[key] = self:GetChecked() and 1 or 0
-        if not properties.skip then redraw_all() end
-    end)
-end
-
 function OPTIONS_FRAME:add_main_settings()
     local frame_ID = 0
     local config_frame = CreateFrame("Frame", nil, self)
@@ -209,20 +198,27 @@ function OPTIONS_FRAME:add_main_settings()
 
     local title = config_frame:CreateFontString(nil, nil, "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", MARGIN, -MARGIN)
-    title:SetText(ADDON_NAME)
+    title:SetText(format("%s %s" , ADDON_NAME, GetAddOnMetadata(ADDON_NAME, "Version")))
 
     for key, values in pairs(CB_DEFAULTS_MAIN) do
         local cb = new_check_box(config_frame, frame_ID, values.row)
-        main_setup_cd(cb, key)
+        local properties = CB_DEFAULTS_MAIN[key]
+        cb.label:SetText(properties.label)
+        cb:SetChecked(SWITCHES[key] ~= 0)
+        cb:SetScript("OnClick", function()
+            SWITCHES[key] = cb:GetChecked() and 1 or 0
+            if not properties.skip then redraw_all() end
+        end)
     end
 
     InterfaceOptions_AddCategory(config_frame)
     self.main_options = config_frame
+    return config_frame
 end
 
-function OPTIONS_FRAME:add_item_settings(itemID)
+function OPTIONS_FRAME:add_item_settings(slot_ID)
     local config_frame = CreateFrame("Frame", nil, self)
-    config_frame.item_frame = FRAMES[itemID]
+    config_frame.item_frame = FRAMES[slot_ID]
 
     local options_name = config_frame.item_frame.item_group
     config_frame.name = options_name
@@ -232,12 +228,7 @@ function OPTIONS_FRAME:add_item_settings(itemID)
     title:SetPoint("TOPLEFT", MARGIN, -MARGIN)
     title:SetText(options_name)
 
-    local cb_show = new_check_box(config_frame, itemID, 1)
-    cb_show.label:SetText("Show")
-    cb_show:SetChecked(config_frame.item_frame.settings.SHOW ~= 0)
-    cb_show:SetScript("OnClick", cb_toggle_item_visibility)
-
-    local cb_show_lvl = new_check_box(config_frame, itemID, 2)
+    local cb_show_lvl = new_check_box(config_frame, slot_ID, 1)
     cb_show_lvl.label:SetText("Show item level")
     cb_show_lvl:SetChecked(config_frame.item_frame.settings.SHOW_ILVL ~= 0)
     cb_show_lvl:SetScript("OnClick", cb_toggle_ilvl_visibility)
@@ -249,11 +240,25 @@ function OPTIONS_FRAME:add_item_settings(itemID)
     InterfaceOptions_AddCategory(config_frame)
 end
 
+local function cb_pos(cb, i)
+    local row = 7 + (i-i%2)/2
+    local y = MARGIN * 2 * row
+    local x = MARGIN + 120 * (i % 2)
+    cb:SetPoint("TOPLEFT", x, -y)
+end
+
 function OPTIONS_FRAME:OnEvent(event, arg1)
     if arg1 ~= ADDON_NAME then return end
-    self:add_main_settings()
-    for _, slot_ID in ipairs(ADDON.SORTED_ITEMS) do
+    local config_frame = self:add_main_settings()
+    for i, slot_ID in ipairs(ADDON.SORTED_ITEMS) do
         self:add_item_settings(slot_ID)
+        local item_frame = FRAMES[slot_ID]
+        local cb_show = new_check_box(config_frame, slot_ID, 0)
+        cb_show.label:SetText("Show " .. item_frame.item_group)
+        cb_show:SetChecked(item_frame.settings.SHOW ~= 0)
+        cb_show:SetScript("OnClick", cb_toggle_item_visibility)
+        cb_show.item_frame = item_frame
+        cb_pos(cb_show, i-1)
     end
 end
 

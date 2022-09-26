@@ -1,32 +1,38 @@
 local ADDON_NAME = "TrinketCDs"
+local ADDON = CreateFrame("Frame")
+_G[ADDON_NAME] = ADDON
+
 local DB = _G.TrinketCDsDB
 local SETTINGS = DB.DEFAULT_SETTINGS
 local SWITCHES = SETTINGS.SWITCHES
-
-local ADDON_PROFILE = ADDON_NAME .. "Profile"
-local ADDON_NAME_COLOR = format("|cFFFFFF00[%s]|r: ", ADDON_NAME)
-
-local ADDON_MEDIA = "Interface\\Addons\\" .. ADDON_NAME .. "\\Media\\%s"
-local FONT = ADDON_MEDIA:format("Emblem.ttf")
-local BORDER_TEXTURE = ADDON_MEDIA:format("BigBorder.blp")
-
-local CHICKEN = 10725
-local BORDER_WEAK = {edgeFile = BORDER_TEXTURE}
-local PRECISION_FORMAT = {[0] = "%d", [1] = "%.1f"}
-
-local FRAMES = {}
-local ITEMS_CACHE = {}
-local SPELLS_CACHE = {}
-
-local ADDON = CreateFrame("Frame")
-_G[ADDON_NAME] = ADDON
-ADDON.FRAMES = FRAMES
+ADDON.FRAMES = {}
 ADDON.SETTINGS = SETTINGS
 ADDON.ITEM_GROUP = DB.ITEM_GROUP
 ADDON.SORTED_ITEMS = {13, 14, 11, 15, 16, 10, 8, 6}
+
+local ITEMS_CACHE = {}
+local SPELLS_CACHE = {}
+local CHICKEN_ID = 10725
+local PRECISION_FORMAT = {[0] = "%d", [1] = "%.1f"}
 local CAN_BE_ACTIVATED = {[13]=true, [14]=true, [10]=true, [8]=true, [6]=true}
+local ADDON_PROFILE = format("%sProfile", ADDON_NAME)
+local ADDON_NAME_COLOR = format("|cFFFFFF00[%s]|r: ", ADDON_NAME)
+local ADDON_MEDIA = format("Interface\\Addons\\%s\\Media\\%%s", ADDON_NAME)
+local FONT = ADDON_MEDIA:format("Emblem.ttf")
+local BORDER_TEXTURE = ADDON_MEDIA:format("BigBorder.blp")
+
+-- global functions used in combat
+local GetTime = GetTime
+local UnitGUID = UnitGUID
+local UnitBuff = UnitBuff
+local GetSpellInfo = GetSpellInfo
+local InCombatLockdown = InCombatLockdown
+local IsModifierKeyDown = IsModifierKeyDown
+local UnitAffectingCombat = UnitAffectingCombat
+local GetInventoryItemCooldown = GetInventoryItemCooldown
 
 local function new_trinket(item_ID)
+    if not item_ID then return end
     local _, _, item_quality, item_level, _, _, _, _, _, item_texture = GetItemInfo(item_ID)
     if not item_quality then return end
 
@@ -58,7 +64,7 @@ local function new_not_trinket(item_ID, buff_ID)
 
     local item = {
         ID = item_ID,
-        CD = 60,
+        CD = DB.ENCHANT_PROC_CD[buff_ID] or 60,
         ilvl = item_level,
         quality = item_quality,
         texture = item_texture,
@@ -81,23 +87,26 @@ end
 
 local function new_item(self)
     local item_ID = GetInventoryItemID("player", self.slot_ID)
-    if not item_ID then return end
-
     local item = ITEMS_CACHE[item_ID]
-    if item then return item end
 
-    if self.item_proc_type == "trinket" then
+    if self.item_proc_type == "enchant" then
+        local item_link = GetInventoryItemLink("player", self.slot_ID)
+        if not item_link then return end
+        local ench_ID = item_link:match("%d:(%d+)")
+        local buff_ID = DB.ENCHANTS[ench_ID]
+        if item and item.spell_ID == buff_ID then return item end
+        return new_not_trinket(item_ID, buff_ID)
+
+    elseif item then return item
+
+    elseif self.item_proc_type == "trinket" then
         return new_trinket(item_ID)
+
     elseif self.item_proc_type == "ring" then
         local buff_ID = DB.ASHEN_RINGS[item_ID]
         if not buff_ID then
             item_ID, buff_ID = check_other_ring(self)
         end
-        return new_not_trinket(item_ID, buff_ID)
-    elseif self.item_proc_type == "enchant_usable" then
-        local item_link = GetInventoryItemLink("player", self.slot_ID)
-        local ench_ID = item_link:match("%d:(%d+)")
-        local buff_ID = DB.ENCHANTS[ench_ID]
         return new_not_trinket(item_ID, buff_ID)
     end
 end
@@ -105,7 +114,7 @@ end
 local function ResetFrame(self)
     self.cooldown_current_end = nil
     self.stacks_text:SetText()
-    self.texture:SetDesaturated(0)
+    self.texture:SetDesaturated(false)
     self.cooldown:SetReverse(false)
     self.cooldown:SetCooldown(0, 0)
     self:ToggleVisibility()
@@ -116,7 +125,7 @@ local function ApplyItemCD(self, dur)
 
     dur = dur or self.item.CD
     self.stacks_text:SetText()
-    self.texture:SetDesaturated(1)
+    self.texture:SetDesaturated(true)
     self.cooldown:SetReverse(false)
     self.cooldown:SetCooldown(self.item.cd_start, dur)
     self.cooldown_current_end = self.item.cd_start + dur
@@ -131,7 +140,7 @@ local function ItemUsedCheck(self)
 
     if cdDur > 30 then
         self.item.CD = cdDur
-        if self.item.ID == CHICKEN and self.item_ID_before_chicken
+        if self.item.ID == CHICKEN_ID and self.item_ID_before_chicken
         and GetTime() - cdStart < 5 then
             EquipItemByName(self.item_ID_before_chicken, self.slot_ID)
         end
@@ -185,7 +194,7 @@ local function ItemBuffApplied(self, duration, expirationTime)
         item.buff_end = expirationTime
         item.cd_end = self.no_swap_cd and expirationTime or cd_start + item.CD
     end
-    self.texture:SetDesaturated(0)
+    self.texture:SetDesaturated(false)
     self.cooldown:SetReverse(true)
     self.cooldown:SetCooldown(cd_start, duration)
     self.cooldown_current_end = expirationTime
@@ -206,16 +215,16 @@ end
 local function AuraCheck(self, swapped)
     if not self.item then return end
 
-    local _stacks, _duration, _expiration = check_proc(self.item)
-    if _duration == 0 then
+    local stacks, duration, expiration = check_proc(self.item)
+    if duration == 0 then
         self.item.applied = true
-        self.stacks_text:SetText(_stacks)
-    elseif _duration then
-        if _stacks ~= 0 then
-            self.stacks_text:SetText(_stacks)
+        self.stacks_text:SetText(stacks)
+    elseif duration then
+        if stacks ~= 0 then
+            self.stacks_text:SetText(stacks)
         end
-        if swapped or _expiration ~= self.item.buff_end then
-            self:ItemBuffApplied(_duration, _expiration)
+        if swapped or expiration ~= self.item.buff_end then
+            self:ItemBuffApplied(duration, expiration)
         end
     elseif self.item.applied then
         self:ItemBuffFaded()
@@ -226,7 +235,7 @@ local function OnUpdate(self)
     if self.item.cd_end and GetTime() > self.item.cd_end then
         self.item.cd_end = nil
         self.cooldown_current_end = nil
-        self.texture:SetDesaturated(0)
+        self.texture:SetDesaturated(false)
         if SWITCHES.HIDE_READY ~= 0 then
             self:Hide()
         end
@@ -235,10 +244,9 @@ end
 
 local function ToggleButton(self)
     if not self.button then return end
-    -- if not self.button or InCombatLockdown() then return end
 
     if SWITCHES.USE_ON_CLICK ~= 0 and self.is_usable
-    or self.item and self.item.ID == CHICKEN then
+    or self.item and self.item.ID == CHICKEN_ID then
         self.button:Show()
     else
         self.button:Hide()
@@ -247,11 +255,12 @@ end
 
 local function ItemUpdate(self)
     local old_ID = self.item and self.item.ID
-    if old_ID and old_ID ~= CHICKEN then
+    if old_ID and old_ID ~= CHICKEN_ID then
         self.item_ID_before_chicken = old_ID
     end
 
     local item = new_item(self)
+    if item and item == self.item then return end
     self.item = item
     if not item then return self:Hide() end
 
@@ -300,8 +309,13 @@ local function OnMouseDown(self, button)
         if IsControlKeyDown() then
             -- Ctrl+left mouse reequips item to force it's cooldown
             self.swap_back_item_id = self.item.ID
-            PickupInventoryItem(self.slot_ID)
-            PutItemInBackpack()
+            for i=0,4 do
+                local free_slots, bag_type = GetContainerNumFreeSlots(i)
+                if bag_type == 0 and free_slots > 0 then
+                    PickupInventoryItem(self.slot_ID)
+                    return i == 0 and PutItemInBackpack() or PutItemInBag(i+19)
+                end
+            end
         elseif IsShiftKeyDown() then
             -- Shift+left mouse swaps trinkets to force cooldown of both
             if self.slot_ID == 13 then
@@ -316,11 +330,11 @@ local function OnMouseDown(self, button)
         end
     elseif button == "RightButton" then
         if IsControlKeyDown() then
-            if self.item.ID == CHICKEN then
+            if self.item.ID == CHICKEN_ID then
                 if not self.item_ID_before_chicken then return end
                 EquipItemByName(self.item_ID_before_chicken, self.slot_ID)
             else
-                EquipItemByName(CHICKEN, self.slot_ID)
+                EquipItemByName(CHICKEN_ID, self.slot_ID)
             end
         end
     end
@@ -342,11 +356,14 @@ local function OnEvent(self, event, arg1, arg2)
         EquipItemByName(self.swap_back_item_id, self.slot_ID)
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
         if DB.ITEM_GROUP[arg1] ~= self.item_group then return end
-        self:ItemUpdate()
-        self:ItemChanged()
-        if self.swap_back_item_id and arg2 == 1 then
+        if self.swap_back_item_id == GetInventoryItemID("player", self.slot_ID) then
             self.swap_back_item_id = false
         end
+        local item = self.item
+        local slot = self.slot_ID
+        self:ItemUpdate()
+        if item == self.item and slot == self.slot_ID then return end
+        self:ItemChanged()
     elseif event == "PLAYER_ENTERING_WORLD" then
         if self.item then return end
         self:ItemUpdate()
@@ -367,6 +384,7 @@ local function new_font_overlay(parent)
 end
 
 local function AddCooldownText(self)
+    if OmniCC then return end
     self.cooldown.text = new_font_overlay(self.cooldown)
     self.cooldown.text:SetPoint("CENTER")
     self.cooldown:SetScript("OnUpdate", function()
@@ -408,8 +426,7 @@ local function RedrawFrame(self)
     local border_margin = self.settings.BORDER_MARGIN
     self.border:SetPoint("TOPLEFT", self, -border_margin, border_margin)
     self.border:SetPoint("BOTTOMRIGHT", self, border_margin, -border_margin)
-    BORDER_WEAK.edgeSize = self.settings.EDGE_SIZE
-    self.border:SetBackdrop(BORDER_WEAK)
+    self.border:SetBackdrop({edgeFile=BORDER_TEXTURE, edgeSize=self.settings.EDGE_SIZE})
     self.border:SetBackdropBorderColor(0, 0, 0, 1)
 
     if self.settings.SHOW_ILVL ~= 0 then
@@ -491,20 +508,21 @@ local function CreateNewItemFrame(slot_ID)
 
     self.slot_ID = slot_ID
     self.item_group = DB.ITEM_GROUP[slot_ID]
-    self.item_proc_type = DB.ITEM_PROC_TYPE[slot_ID]
+    self.item_proc_type = DB.ITEM_PROC_TYPES[slot_ID]
     self.settings = SETTINGS.ITEMS[slot_ID]
 
-    self.texture = self:CreateTexture(nil, "OVERLAY")
+    self.texture = self:CreateTexture(ADDON_NAME..slot_ID.."Background", "OVERLAY")
     self.texture:SetAllPoints()
     self.texture:SetTexture("Interface/Icons/Trade_Engineering")
 
-    self.cooldown = CreateFrame("Cooldown", "Trinket"..slot_ID.."Cooldown", self, "CooldownFrameTemplate")
-    self.cooldown:SetAllPoints()
-    if not OmniCC then AddCooldownText(self) end
-
-    self.border = CreateFrame("Frame", nil, self)
+    self.border = CreateFrame("Frame", ADDON_NAME..slot_ID.."Border", self, BackdropTemplateMixin and "BackdropTemplate")
     self.border:SetFrameStrata("MEDIUM")
 
+    self.cooldown = CreateFrame("Cooldown", ADDON_NAME..slot_ID.."Cooldown", self, "CooldownFrameTemplate")
+    self.cooldown:SetAllPoints()
+    if self.cooldown.SetEdgeScale then self.cooldown:SetEdgeScale(0) end
+
+    AddCooldownText(self)
     AddTextLayer(self)
     AddFunctions(self)
     RedrawFrame(self)
@@ -544,7 +562,7 @@ function ADDON:OnEvent(event, arg1)
         _G[ADDON_PROFILE] = SETTINGS
 
         for _, slot_ID in ipairs(self.SORTED_ITEMS) do
-            FRAMES[slot_ID] = CreateNewItemFrame(slot_ID)
+            self.FRAMES[slot_ID] = CreateNewItemFrame(slot_ID)
         end
 	end
 end
@@ -562,7 +580,7 @@ function SlashCmdList.RIDEPAD_TRINKETS(arg)
         UpdateAddOnCPUUsage()
         local msg = ADDON_NAME_COLOR .. "Total seconds in addon:"
         msg = format("%s\n%.3fs", msg, GetAddOnCPUUsage(ADDON_NAME) / 1000)
-        for _, frame in pairs(FRAMES) do
+        for _, frame in pairs(ADDON.FRAMES) do
             local t, c = GetFrameCPUUsage(frame)
             msg = format("%s\n%.3fs | %d function calls", msg, t / 1000, c)
         end
