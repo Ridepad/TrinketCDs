@@ -1,126 +1,45 @@
 # TrinketCDs
 
-**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
+**Fast jump:** [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
 
-![Showcase](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_main.png)
-
+- Addon dynamically tracks cooldown of equipped trinkets and enchants.
+- Made to remove headache of copying/creating weakauras for every new character/item.
+- Works both on 3.3 and 3.4 WotLK versions.
 - Full database of WotLK/TBC trinkets.
 - Ashen rings, cloak, weapon, hands, boots and belt enchants.
-- Works both on 3.3 and 3.4 WotLK versions.
 - Doesn't depend on combat log.
-- Buff duration, stacks, cooldown.
-- Cooldown on login and after inventory change.
+- Proc duration, stacks, cooldown.
+- Loging and Cooldown on login and after inventory change.
 - Has built-in cooldown text (use [OmniCC](https://www.curseforge.com/wow/addons/omni-cc/files/454434) as alternative).
 - Caches cooldown even if trinket was unequiped after proc (useful if server has different iCD on equip).
 
-## Changelog
-
-**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
-
 <details><summary><b>Changelog</b></summary>
-<details><summary>2.2.0</summary>
 
-    Moved all "Show" checkboxes into main options panel
+[2.2.1](https://github.com/Ridepad/TrinketCDs/releases/tag/2.2.1)
 
-    Functions used in combat are now local for better perfomance
+[2.2.0](https://github.com/Ridepad/TrinketCDs/releases/tag/2.2.0)
 
-    Fixed cooldown for enchants
+[2.1.0](https://github.com/Ridepad/TrinketCDs/releases/tag/2.1.0)
 
-    Added TBC trinkets
+[2.0.2](https://github.com/Ridepad/TrinketCDs/releases/tag/2.0.2)
 
-    Fixed a bug where ring frame was hidden when top ring slot was empty
+[2.0.1](https://github.com/Ridepad/TrinketCDs/releases/tag/2.0.1)
 
-    Fixed a bug where ring frame went on cooldown, if a ring was changed in a different slot
-
-    Fixed a bug where item frame whouldn't be updated, if a new equiped item has the same ID but different enchant
-
-    WotLK Classic ready:
-
-    Removed CD swipe texture
-
-    Fixed critical error on addon load, that bricked whole addon
-
-    - Border now requires BackdropTemplate as default template
-
-    Fixed a bug where the frame border was not updating in real time from changing settings
-
-    - SetBackdrop now requires a new table as argument instead of table reference
-
-    Fixed desaturation
-
-    - SetDesaturated now requires true/false instead of 1/nil
-
-    Fixed item reequip with ctrl
-
-    - PLAYER_EQUIPMENT_CHANGED now fired with false/true instead or 1/nil
-
-    - PickupInventoryItem() only checks dafault bag instead of all 5
-**Full Changelog:** [2.1.0...2.2.0](https://github.com/Ridepad/TrinketCDs/compare/2.1.0...2.2.0)
-</details>
-<details><summary>2.1.0</summary>
-
-    Improved button functionality
-
-    Chicken swap works without any additional set up
-
-    Fixed wrong weapon enchantments IDs
-
-    Added Berserking
-
-    Fixed bug on 1st game launch without item cache from server
-**Full Changelog:** [2.0.2...2.1.0](https://github.com/Ridepad/TrinketCDs/compare/2.0.2...2.1.0)
-</details>
-<details><summary>2.0.2</summary>
-
-    Fixed settings defaults
-**Full Changelog:** [2.0.1...2.0.2](https://github.com/Ridepad/TrinketCDs/compare/2.0.1...2.0.2)
+[2.0.0](https://github.com/Ridepad/TrinketCDs/releases/tag/2.0.0-beta.2)
 </details>
 
-<details><summary>2.0.1</summary>
-
-    Better built-in cooldown text
-
-    Fixed chicken swap feature doesn't swap back to previous item after use, if chicken was reequiped
-
-    Fixed visibility out of combat after wipe
-
-    Removed unnecessary code
-**Full Changelog:** [2.0.0...2.0.1](https://github.com/Ridepad/TrinketCDs/compare/2.0.0-beta.2...2.0.1)
-</details>
-
-<details><summary>2.0.0</summary>
-
-    Added ring, cloak, weapon, boots, belt enchants
-
-    Added item cooldown text.
-
-    Added position settings for each frame.
-
-    Added option to hide item level.
-
-    Added option to hide out of combat.
-
-    Added option to hide if ready.
-
-    Added option to click to use.
-
-    Added option to change stacks text to the bottom.
-
-    Improved min/max values for x,y frame positions.
-**Full Changelog:** [1.4.0...2.0.0](https://github.com/Ridepad/TrinketCDs/compare/1.4.0...2.0.0-beta.2)
-</details>
-</details>
+![Showcase](https://raw.githubusercontent.com/Ridepad/TrinketCDs/main/showcase/showcase_main.png)
 
 ## Install
 
-**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
+**Fast jump:** [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
 
 - [Download](https://github.com/Ridepad/TrinketCDs/releases/latest).
 - Extract `TrinketCDs` folder into `<WoW Folder>/Interface/Addons/` folder.
 
 ## Preview
 
-**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
+**Fast jump:** [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
 
 ### All items preview
 
@@ -160,7 +79,7 @@ Swaps for trinket with same name, but different ilvl (if exists in bag).
 
 ## Perfomance
 
-**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
+**Fast jump:** [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
 
 CPU usage from LoD kill
 
@@ -168,7 +87,7 @@ CPU usage from LoD kill
 
 ## Options
 
-**Fast jump:** [Changelog](#changelog) | [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
+**Fast jump:** [Install](#install) | [Preview](#preview) | [Perfomance](#perfomance) | [Options](#options)
 
 Check in game options for settings
 

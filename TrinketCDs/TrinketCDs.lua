@@ -24,7 +24,6 @@ local BORDER_TEXTURE = ADDON_MEDIA:format("BigBorder.blp")
 -- global functions used in combat
 local GetTime = GetTime
 local UnitGUID = UnitGUID
-local UnitBuff = UnitBuff
 local GetSpellInfo = GetSpellInfo
 local InCombatLockdown = InCombatLockdown
 local IsModifierKeyDown = IsModifierKeyDown
@@ -160,13 +159,27 @@ local function get_spell_name(spell_ID)
     return spell_name
 end
 
-local function player_buff(spell_ID)
-    local buff_name = get_spell_name(spell_ID)
-    local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_name)
-    if buffSpellID == spell_ID then
-        return stacks, duration, expirationTime
+local player_buff = (function()
+    if AuraUtil and AuraUtil.FindAuraByName then
+        local FindAuraByName = AuraUtil and AuraUtil.FindAuraByName
+        return function(spell_ID)
+            local buff_name = get_spell_name(spell_ID)
+            local _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = FindAuraByName(buff_name, "player")
+            if buffSpellID == spell_ID then
+                return stacks, duration, expirationTime
+            end
+        end
+    else
+        local UnitBuff = UnitBuff
+        return function(spell_ID)
+            local buff_name = get_spell_name(spell_ID)
+            local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_name)
+            if buffSpellID == spell_ID then
+                return stacks, duration, expirationTime
+            end
+        end
     end
-end
+end)()
 
 local function check_proc(item)
     if item.spell_ID then

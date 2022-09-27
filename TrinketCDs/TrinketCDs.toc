@@ -1,7 +1,7 @@
 ## Interface: 30300
 ## Title:|cffee0080TrinketCDs|r
 ## Author: Ridepad (|cff888888Ridepad#7722|r)
-## Version: 2.2.0
+## Version: 2.2.1
 ## SavedVariables: TrinketCDsProfile
 ## Notes: Trinkets and item enchants proc tracker.
 ## Notes-ruRU: Отслеживает баффы предметов и энчантов.
