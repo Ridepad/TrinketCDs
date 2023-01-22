@@ -30,6 +30,9 @@ local IsModifierKeyDown = IsModifierKeyDown
 local UnitAffectingCombat = UnitAffectingCombat
 local GetInventoryItemCooldown = GetInventoryItemCooldown
 
+-- fk blzrd
+local GetContainerNumFreeSlots = GetContainerNumFreeSlots or C_Container and C_Container.GetContainerNumFreeSlots
+
 local function new_trinket(item_ID)
     if not item_ID then return end
     local _, _, item_quality, item_level, _, _, _, _, _, item_texture = GetItemInfo(item_ID)

@@ -15,6 +15,8 @@
 
 <details><summary><b>Changelog</b></summary>
 
+[2.2.2](https://github.com/Ridepad/TrinketCDs/releases/tag/2.2.2)
+
 [2.2.1](https://github.com/Ridepad/TrinketCDs/releases/tag/2.2.1)
 
 [2.2.0](https://github.com/Ridepad/TrinketCDs/releases/tag/2.2.0)
