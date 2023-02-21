@@ -29,8 +29,6 @@ local InCombatLockdown = InCombatLockdown
 local IsModifierKeyDown = IsModifierKeyDown
 local UnitAffectingCombat = UnitAffectingCombat
 local GetInventoryItemCooldown = GetInventoryItemCooldown
-
--- fk blzrd
 local GetContainerNumFreeSlots = GetContainerNumFreeSlots or C_Container and C_Container.GetContainerNumFreeSlots
 
 local function new_trinket(item_ID)
