@@ -329,9 +329,10 @@ local function OnMouseDown(self, button)
                 local free_slots, bag_type = GetContainerNumFreeSlots(i)
                 if bag_type == 0 and free_slots > 0 then
                     PickupInventoryItem(self.slot_ID)
-                    return i == 0 and PutItemInBackpack() or PutItemInBag(i+19)
+                    return i == 0 and PutItemInBackpack() or PutItemInBag(i+CONTAINER_BAG_OFFSET)
                 end
             end
+
         elseif IsShiftKeyDown() then
             -- Shift+left mouse swaps trinkets to force cooldown of both
             if self.slot_ID == 13 then
@@ -339,6 +340,7 @@ local function OnMouseDown(self, button)
             elseif self.slot_ID == 14 then
                 EquipItemByName(self.item.ID, 13)
             end
+
         elseif IsAltKeyDown() then
             -- Alt+left mouse swaps to an item with the same name: pnl 277 <-> 264
             local item_name = GetItemInfo(self.item.ID)
