@@ -31,47 +31,55 @@ local UnitAffectingCombat = UnitAffectingCombat
 local GetInventoryItemCooldown = GetInventoryItemCooldown
 local GetContainerNumFreeSlots = GetContainerNumFreeSlots or C_Container and C_Container.GetContainerNumFreeSlots
 
-local function new_trinket(item_ID)
+local function new_item(item_ID)
     if not item_ID then return end
     local _, _, item_quality, item_level, _, _, _, _, _, item_texture = GetItemInfo(item_ID)
     if not item_quality then return end
 
-    local buff_ID = DB.TRINKET_PROC_ID[item_ID]
-    local stacks_ID = DB.TRINKET_PROC_STACKS[buff_ID]
-    local buff_IDs = DB.TRINKET_PROC_MULTIBUFF[item_ID]
-    local proc_in_DB = (buff_ID or buff_IDs) and true
-    local itemCD = proc_in_DB and (DB.TRINKET_PROC_CD[item_ID] or 45)
-
     local item = {
         ID = item_ID,
-        CD = itemCD,
         ilvl = item_level,
         quality = item_quality,
         texture = item_texture,
-        spell_ID = buff_ID,
-        spell_IDs = buff_IDs,
-        stacks_ID = stacks_ID,
-        proc_in_DB = proc_in_DB,
     }
     ITEMS_CACHE[item_ID] = item
     return item
 end
 
-local function new_not_trinket(item_ID, buff_ID)
-    if not buff_ID then return end
-    local _, _, item_quality, item_level, _, _, _, _, _, item_texture = GetItemInfo(item_ID)
-    if not item_quality then return end
+local function get_buff_IDs(item_ID)
+    local spell_IDs = DB.TRINKET_PROC_MULTIBUFF[item_ID]
+    if not spell_IDs then return end
 
-    local item = {
-        ID = item_ID,
-        CD = DB.ENCHANT_PROC_CD[buff_ID] or 60,
-        ilvl = item_level,
-        quality = item_quality,
-        texture = item_texture,
-        spell_ID = buff_ID,
-        proc_in_DB = true,
-    }
-    ITEMS_CACHE[item_ID] = item
+    local buff_IDs = {}
+    for _, spell_ID in pairs(spell_IDs) do
+        buff_IDs[spell_ID] = true
+    end
+    return buff_IDs
+end
+
+local function new_trinket(item_ID)
+    local item = new_item(item_ID)
+    if not item then return end
+
+    local buff_ID = DB.TRINKET_PROC_ID[item_ID]
+    local buff_IDs = get_buff_IDs(item_ID)
+    item.spell_ID = buff_ID
+    item.spell_IDs = buff_IDs
+    item.stacks_ID = DB.TRINKET_PROC_STACKS[buff_ID]
+    if buff_ID or buff_IDs then
+        item.proc_in_DB = true
+        item.CD = DB.TRINKET_PROC_CD[item_ID] or 45
+    end
+    return item
+end
+
+local function new_not_trinket(item_ID, buff_ID)
+    local item = new_item(item_ID)
+    if not item then return end
+
+    item.spell_ID = buff_ID
+    item.proc_in_DB = true
+    item.CD = DB.ENCHANT_PROC_CD[buff_ID] or 60
     return item
 end
 
@@ -85,16 +93,23 @@ local function check_other_ring(self)
     end
 end
 
-local function new_item(self)
+local function get_item(self)
     local item_ID = GetInventoryItemID("player", self.slot_ID)
     local item = ITEMS_CACHE[item_ID]
 
     if self.item_proc_type == "enchant" then
         local item_link = GetInventoryItemLink("player", self.slot_ID)
         if not item_link then return end
+
         local ench_ID = item_link:match("%d:(%d+)")
         local buff_ID = DB.ENCHANTS[ench_ID]
         if item and item.spell_ID == buff_ID then return item end
+
+        if not buff_ID then
+            local _, _, has_cd = GetInventoryItemCooldown("player", self.slot_ID)
+            if has_cd == 0 then return end
+        end
+
         return new_not_trinket(item_ID, buff_ID)
 
     elseif item then return item
@@ -107,7 +122,7 @@ local function new_item(self)
         if not buff_ID then
             item_ID, buff_ID = check_other_ring(self)
         end
-        return new_not_trinket(item_ID, buff_ID)
+        return buff_ID and new_not_trinket(item_ID, buff_ID)
     end
 end
 
@@ -273,7 +288,7 @@ local function ItemUpdate(self)
         self.item_ID_before_chicken = old_ID
     end
 
-    local item = new_item(self)
+    local item = get_item(self)
     if item and item == self.item then return end
     self.item = item
     if not item then return self:Hide() end
