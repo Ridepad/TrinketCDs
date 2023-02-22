@@ -166,51 +166,56 @@ local function ItemUsedCheck(self)
     self:ApplyItemCD(cdDur)
 end
 
-local function get_spell_name(spell_ID)
-    local spell_name = SPELLS_CACHE[spell_ID]
-    if not spell_name then
-        spell_name = GetSpellInfo(spell_ID)
-        SPELLS_CACHE[spell_ID] = spell_name
-    end
-    return spell_name
+local function player_buff(spell_ID)
+    local buff_index = 1
+    repeat
+        local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_index)
+        if buffSpellID == spell_ID then
+            return stacks, duration, expirationTime
+        end
+        buff_index = buff_index + 1
+    until not buffSpellID
 end
 
-local player_buff = (function()
-    if AuraUtil and AuraUtil.FindAuraByName then
-        local FindAuraByName = AuraUtil and AuraUtil.FindAuraByName
-        return function(spell_ID)
-            local buff_name = get_spell_name(spell_ID)
-            local _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = FindAuraByName(buff_name, "player")
-            if buffSpellID == spell_ID then
-                return stacks, duration, expirationTime
+local function player_buff_multi(spell_IDs)
+    local buff_index = 1
+    repeat
+        local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_index)
+        if spell_IDs[buffSpellID] then
+            return stacks, duration, expirationTime
+        end
+        buff_index = buff_index + 1
+    until not buffSpellID
+end
+
+local function player_buff_stacks(spell_ID, stacks_ID)
+    local _stacks, _duration, _expiration
+    local buff_index = 1
+    repeat
+        local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_index)
+        if buffSpellID == spell_ID then
+            _duration = duration
+            _expiration = expirationTime
+            if _stacks then
+                return _stacks, _duration, _expiration
+            end
+        elseif buffSpellID == stacks_ID then
+            _stacks = stacks
+            if _duration then
+                return _stacks, _duration, _expiration
             end
         end
-    else
-        local UnitBuff = UnitBuff
-        return function(spell_ID)
-            local buff_name = get_spell_name(spell_ID)
-            local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_name)
-            if buffSpellID == spell_ID then
-                return stacks, duration, expirationTime
-            end
-        end
-    end
-end)()
+        buff_index = buff_index + 1
+    until not buffSpellID
+end
 
 local function check_proc(item)
-    if item.spell_ID then
-        local stacks, duration, expirationTime = player_buff(item.spell_ID)
-        if item.stacks_ID then
-            stacks = player_buff(item.stacks_ID)
-        end
-        return stacks, duration, expirationTime
+    if item.stacks_ID then
+        return player_buff_stacks(item.spell_ID, item.stacks_ID)
+    elseif item.spell_ID then
+        return player_buff(item.spell_ID)
     elseif item.spell_IDs then
-        for _, spell_ID in pairs(item.spell_IDs) do
-            local stacks, duration, expirationTime = player_buff(spell_ID)
-            if duration then
-                return stacks, duration, expirationTime
-            end
-        end
+        return player_buff_multi(item.spell_IDs)
     end
 end
 
