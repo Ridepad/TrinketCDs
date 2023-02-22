@@ -69,17 +69,17 @@ local SLIDERS = {
 }
 
 local CB_DEFAULTS_MAIN = {
-    USE_ON_CLICK = {
+    COMBAT_ONLY = {
         row = 1,
-        label = "Enable item activation with mouse",
+        label = "Hide out of combat",
     },
     HIDE_READY = {
         row = 2,
-        label = "Hide if ready (overwrites option above, requires reload)",
+        label = "Hide if ready (doesn't work with option below)",
     },
-    COMBAT_ONLY = {
+    USE_ON_CLICK = {
         row = 3,
-        label = "Hide out of combat",
+        label = "Enable item activation with mouse (requires /reload)",
     },
     STACKS_BOTTOM = {
         row = 4,
@@ -247,9 +247,45 @@ local function cb_pos(cb, i)
     cb:SetPoint("TOPLEFT", x, -y)
 end
 
+local dropDown
+local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
+local function WPDropDownDemo_OnClick(self, arg1)
+    UIDropDownMenu_SetText(dropDown, self.value)
+    SWITCHES.FONT_FILE = arg1
+    redraw_all()
+end
+
+local function sort_fonts_alpha(font_table)
+    local _sorted = {}
+    for font_name in pairs(font_table) do
+        _sorted[#_sorted+1] = font_name
+    end
+
+    sort(_sorted, function(a, b) return a < b end)
+
+    return _sorted
+end
+
+local function WPDropDownDemo_Menu(frame, level, menuList)
+    local font_table = LSM:HashTable('font')
+    local font_table_sorted = sort_fonts_alpha(font_table)
+
+    local info = UIDropDownMenu_CreateInfo()
+    info.func = WPDropDownDemo_OnClick
+    info.text, info.arg1 = "Default", ""
+    UIDropDownMenu_AddButton(info)
+    for _, font_name in ipairs(font_table_sorted) do
+        info.text, info.arg1 = font_name, font_table[font_name]
+        UIDropDownMenu_AddButton(info)
+    end
+end
+
 function OPTIONS_FRAME:OnEvent(event, arg1)
+    print(event, arg1)
     if arg1 ~= ADDON_NAME then return end
+
     local config_frame = self:add_main_settings()
+    print(ADDON_OPTIONS, "config_frame")
     for i, slot_ID in ipairs(ADDON.SORTED_ITEMS) do
         self:add_item_settings(slot_ID)
         local item_frame = FRAMES[slot_ID]
@@ -260,6 +296,21 @@ function OPTIONS_FRAME:OnEvent(event, arg1)
         cb_show.item_frame = item_frame
         cb_pos(cb_show, i-1)
     end
+    print(ADDON_OPTIONS, "config_frame done")
+
+    if not LSM then return end
+
+    local font_font = config_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    font_font:SetPoint("TOPLEFT", MARGIN, -MARGIN * 2 * 11.25)
+    font_font:SetText("Font:")
+    print(ADDON_OPTIONS, "config_frame font_font")
+
+    dropDown = CreateFrame("Frame", "WPDemoDropDown", config_frame, "UIDropDownMenuTemplate")
+    dropDown:SetPoint("TOPLEFT", MARGIN * 3, -MARGIN * 2 * 11)
+    UIDropDownMenu_SetWidth(dropDown, 200)
+    UIDropDownMenu_Initialize(dropDown, WPDropDownDemo_Menu)
+    UIDropDownMenu_SetText(dropDown, "Select font")
+    print(ADDON_OPTIONS, "config_frame dropDown")
 end
 
 OPTIONS_FRAME:RegisterEvent("ADDON_LOADED")

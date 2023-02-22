@@ -11,20 +11,21 @@ ADDON.ITEM_GROUP = DB.ITEM_GROUP
 ADDON.SORTED_ITEMS = {13, 14, 11, 15, 16, 10, 8, 6}
 
 local ITEMS_CACHE = {}
-local SPELLS_CACHE = {}
 local CHICKEN_ID = 10725
-local PRECISION_FORMAT = {[0] = "%d", [1] = "%.1f"}
 local CAN_BE_ACTIVATED = {[13]=true, [14]=true, [10]=true, [8]=true, [6]=true}
+local PRECISION_FORMAT = {[0] = "%d", [1] = "%.1f"}
 local ADDON_PROFILE = format("%sProfile", ADDON_NAME)
 local ADDON_NAME_COLOR = format("|cFFFFFF00[%s]|r: ", ADDON_NAME)
 local ADDON_MEDIA = format("Interface\\Addons\\%s\\Media\\%%s", ADDON_NAME)
-local FONT = ADDON_MEDIA:format("Emblem.ttf")
 local BORDER_TEXTURE = ADDON_MEDIA:format("BigBorder.blp")
+local DEFAULT_FONT_FILE = "Expressway.ttf"
+local DEFAULT_FONT_FILE = "Emblem.ttf"
+local DEFAULT_FONT = ADDON_MEDIA:format(DEFAULT_FONT_FILE)
+SWITCHES.FONT_FILE = DEFAULT_FONT
 
--- global functions used in combat
 local GetTime = GetTime
+local UnitBuff = UnitBuff
 local UnitGUID = UnitGUID
-local GetSpellInfo = GetSpellInfo
 local InCombatLockdown = InCombatLockdown
 local IsModifierKeyDown = IsModifierKeyDown
 local UnitAffectingCombat = UnitAffectingCombat
@@ -448,10 +449,22 @@ local function AddTextLayer(self)
     self.ilvl_text:SetPoint("BOTTOMRIGHT", 0, 2)
 end
 
-local function set_new_font(text, settings, key)
+local function set_new_font(text, icon_size, text_size)
     if not text then return end
-    local fontsize = settings.ICON_SIZE / 100 * (settings[key]) + 1
-    text:SetFont(FONT, floor(fontsize), "OUTLINE")
+
+    local fontsize = icon_size / 100 * text_size + 1
+    local success = text:SetFont(SWITCHES.FONT_FILE, floor(fontsize), "OUTLINE")
+    local __font = text:GetFont()
+    print(ADDON_NAME_COLOR, "set_new_font", success, __font)
+
+    if success == 1 or success == true then return success end
+
+    SWITCHES.FONT_FILE = DEFAULT_FONT
+    success = text:SetFont(DEFAULT_FONT, floor(fontsize), "OUTLINE")
+
+    __font = text:GetFont()
+    print(ADDON_NAME_COLOR, "set_new_font2", success, __font)
+    return success
 end
 
 local function RedrawFrame(self)
@@ -471,16 +484,17 @@ local function RedrawFrame(self)
         self.ilvl_text:Hide()
     end
 
+    local _icon_size = self.settings.ICON_SIZE
     local stacks_pos = SWITCHES.STACKS_BOTTOM == 0 and 1 or -1
-    self.stacks_text:SetPoint("CENTER", 0, self.settings.ICON_SIZE/2 * stacks_pos)
+    self.stacks_text:SetPoint("CENTER", 0, _icon_size/2 * stacks_pos)
 
-    if self.button and InCombatLockdown() then return end
+    set_new_font(self.stacks_text, _icon_size, self.settings.STACKS_SIZE)
+    set_new_font(self.ilvl_text, _icon_size, self.settings.ILVL_SIZE)
+    set_new_font(self.cooldown.text, _icon_size, self.settings.CD_SIZE)
 
-    set_new_font(self.stacks_text, self.settings, "STACKS_SIZE")
-    set_new_font(self.ilvl_text, self.settings, "ILVL_SIZE")
-    set_new_font(self.cooldown.text, self.settings, "CD_SIZE")
+    if InCombatLockdown() then return end
 
-    self:SetSize(self.settings.ICON_SIZE, self.settings.ICON_SIZE)
+    self:SetSize(_icon_size, _icon_size)
     self:SetPoint("CENTER", self.settings.POS_X, self.settings.POS_Y)
 
     self:ToggleButton()
