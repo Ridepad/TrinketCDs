@@ -12,13 +12,11 @@ ADDON.SORTED_ITEMS = {13, 14, 11, 15, 16, 10, 8, 6}
 
 local ITEMS_CACHE = {}
 local CHICKEN_ID = 10725
-local CAN_BE_ACTIVATED = {[13]=true, [14]=true, [10]=true, [8]=true, [6]=true}
 local PRECISION_FORMAT = {[0] = "%d", [1] = "%.1f"}
 local ADDON_PROFILE = format("%sProfile", ADDON_NAME)
 local ADDON_NAME_COLOR = format("|cFFFFFF00[%s]|r: ", ADDON_NAME)
 local ADDON_MEDIA = format("Interface\\Addons\\%s\\Media\\%%s", ADDON_NAME)
 local BORDER_TEXTURE = ADDON_MEDIA:format("BigBorder.blp")
-local DEFAULT_FONT_FILE = "Expressway.ttf"
 local DEFAULT_FONT_FILE = "Emblem.ttf"
 local DEFAULT_FONT = ADDON_MEDIA:format(DEFAULT_FONT_FILE)
 SWITCHES.FONT_FILE = DEFAULT_FONT
@@ -395,11 +393,19 @@ local function OnEvent(self, event, arg1, arg2)
         self:AuraCheck()
     elseif event == "BAG_UPDATE_COOLDOWN" then
         self:ItemUsedCheck()
+
     elseif event == "MODIFIER_STATE_CHANGED" then
         if self.button and self.button:IsVisible() then return end
         self:EnableMouse(arg2 == 1)
-    elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+
+    elseif event == "PLAYER_REGEN_DISABLED" then
         self:ToggleVisibility()
+        self:UnregisterEvent("MODIFIER_STATE_CHANGED")
+
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        self:ToggleVisibility()
+        self:RegisterEvent("MODIFIER_STATE_CHANGED")
+
     elseif event == "ITEM_UNLOCKED" then
         if not self.swap_back_item_id then return end
         EquipItemByName(self.swap_back_item_id, self.slot_ID)
@@ -432,8 +438,9 @@ local function new_font_overlay(parent)
     return font
 end
 
-local function AddCooldownText(self)
+local function add_cooldown_text(self)
     if OmniCC then return end
+
     self.cooldown.text = new_font_overlay(self.cooldown)
     self.cooldown.text:SetPoint("CENTER")
     self.cooldown:SetScript("OnUpdate", function()
@@ -450,7 +457,7 @@ local function AddCooldownText(self)
     end)
 end
 
-local function AddTextLayer(self)
+local function add_text_layer(self)
     self.text_overlay = CreateFrame("Frame", nil, self)
     self.text_overlay:SetAllPoints()
 
@@ -466,17 +473,11 @@ local function set_new_font(text, icon_size, text_size)
 
     local fontsize = icon_size / 100 * text_size + 1
     local success = text:SetFont(SWITCHES.FONT_FILE, floor(fontsize), "OUTLINE")
-    local __font = text:GetFont()
-    print(ADDON_NAME_COLOR, "set_new_font", success, __font)
 
     if success == 1 or success == true then return success end
 
     SWITCHES.FONT_FILE = DEFAULT_FONT
-    success = text:SetFont(DEFAULT_FONT, floor(fontsize), "OUTLINE")
-
-    __font = text:GetFont()
-    print(ADDON_NAME_COLOR, "set_new_font2", success, __font)
-    return success
+    text:SetFont(DEFAULT_FONT, floor(fontsize), "OUTLINE")
 end
 
 local function RedrawFrame(self)
@@ -529,7 +530,7 @@ local function ToggleVisibility(self)
     end
 end
 
-local function AddFunctions(self)
+local function add_functions(self)
     self.ApplyItemCD = ApplyItemCD
     self.AuraCheck = AuraCheck
     self.ItemBuffApplied = ItemBuffApplied
@@ -539,8 +540,8 @@ local function AddFunctions(self)
     self.ItemUpdate = ItemUpdate
     self.RedrawFrame = RedrawFrame
     self.ResetFrame = ResetFrame
-    self.ToggleVisibility = ToggleVisibility
     self.ToggleButton = ToggleButton
+    self.ToggleVisibility = ToggleVisibility
 
     self:RegisterEvent("BAG_UPDATE_COOLDOWN")
     self:RegisterEvent("ITEM_UNLOCKED")
@@ -556,38 +557,44 @@ local function AddFunctions(self)
     self:SetScript("OnMouseDown", OnMouseDown)
 end
 
-local function CreateNewItemFrame(slot_ID)
-    local self = CreateFrame("Frame", ADDON_NAME..slot_ID, UIParent)
+local function add_button(self)
+    if SWITCHES.HIDE_READY ~= 0 then return end
 
-    if SWITCHES.HIDE_READY == 0 and CAN_BE_ACTIVATED[slot_ID] then
-        self.button = CreateFrame("Button", ADDON_NAME..slot_ID.."Button", self, "SecureActionButtonTemplate")
-        self.button:SetAttribute("type1", "macro")
-        self.button:SetAttribute("macrotext1", "/use " .. slot_ID)
-        self.button:SetAllPoints()
-        self.button:SetScript("OnMouseDown", OnMouseDown)
-        self.button.parent = self
-    end
+    local frame_name = ADDON_NAME .. self.slot_ID
+    self.button = CreateFrame("Button", frame_name.."Button", self, "SecureActionButtonTemplate")
+    self.button:SetAttribute("type1", "item")
+    self.button:SetAttribute("item", self.slot_ID)
+    self.button:SetAllPoints()
+    self.button:SetScript("OnMouseDown", OnMouseDown)
+    self.button.parent = self
+end
+
+local function CreateNewItemFrame(slot_ID)
+    local frame_name = ADDON_NAME..slot_ID
+    local self = CreateFrame("Frame", frame_name, UIParent)
 
     self.slot_ID = slot_ID
     self.item_group = DB.ITEM_GROUP[slot_ID]
     self.item_proc_type = DB.ITEM_PROC_TYPES[slot_ID]
     self.settings = SETTINGS.ITEMS[slot_ID]
 
-    self.texture = self:CreateTexture(ADDON_NAME..slot_ID.."Background", "OVERLAY")
+    self.texture = self:CreateTexture(frame_name.."Background", "OVERLAY")
     self.texture:SetAllPoints()
     self.texture:SetTexture("Interface/Icons/Trade_Engineering")
 
-    self.border = CreateFrame("Frame", ADDON_NAME..slot_ID.."Border", self, BackdropTemplateMixin and "BackdropTemplate")
+    self.border = CreateFrame("Frame", frame_name.."Border", self, BackdropTemplateMixin and "BackdropTemplate")
     self.border:SetFrameStrata("MEDIUM")
 
-    self.cooldown = CreateFrame("Cooldown", ADDON_NAME..slot_ID.."Cooldown", self, "CooldownFrameTemplate")
+    self.cooldown = CreateFrame("Cooldown", frame_name.."Cooldown", self, "CooldownFrameTemplate")
     self.cooldown:SetAllPoints()
     if self.cooldown.SetEdgeScale then self.cooldown:SetEdgeScale(0) end
 
-    AddCooldownText(self)
-    AddTextLayer(self)
-    AddFunctions(self)
-    RedrawFrame(self)
+    add_button(self)
+    add_cooldown_text(self)
+    add_text_layer(self)
+    add_functions(self)
+
+    self:RedrawFrame()
 
     return self
 end
