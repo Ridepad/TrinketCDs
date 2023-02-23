@@ -274,18 +274,22 @@ local function WPDropDownDemo_Menu(frame, level, menuList)
     info.func = WPDropDownDemo_OnClick
     info.text, info.arg1 = "Default", ""
     UIDropDownMenu_AddButton(info)
+    UIDropDownMenu_SetText(dropDown, "Default")
+
     for _, font_name in ipairs(font_table_sorted) do
-        info.text, info.arg1 = font_name, font_table[font_name]
+        local font_path = font_table[font_name]
+        info.text, info.arg1 = font_name, font_path
+        if font_path == SWITCHES.FONT_FILE then
+            UIDropDownMenu_SetText(dropDown, font_name)
+        end
         UIDropDownMenu_AddButton(info)
     end
 end
 
 function OPTIONS_FRAME:OnEvent(event, arg1)
-    print(event, arg1)
     if arg1 ~= ADDON_NAME then return end
 
     local config_frame = self:add_main_settings()
-    print(ADDON_OPTIONS, "config_frame")
     for i, slot_ID in ipairs(ADDON.SORTED_ITEMS) do
         self:add_item_settings(slot_ID)
         local item_frame = FRAMES[slot_ID]
@@ -296,21 +300,17 @@ function OPTIONS_FRAME:OnEvent(event, arg1)
         cb_show.item_frame = item_frame
         cb_pos(cb_show, i-1)
     end
-    print(ADDON_OPTIONS, "config_frame done")
 
     if not LSM then return end
 
     local font_font = config_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     font_font:SetPoint("TOPLEFT", MARGIN, -MARGIN * 2 * 11.25)
     font_font:SetText("Font:")
-    print(ADDON_OPTIONS, "config_frame font_font")
 
     dropDown = CreateFrame("Frame", "WPDemoDropDown", config_frame, "UIDropDownMenuTemplate")
     dropDown:SetPoint("TOPLEFT", MARGIN * 3, -MARGIN * 2 * 11)
     UIDropDownMenu_SetWidth(dropDown, 200)
     UIDropDownMenu_Initialize(dropDown, WPDropDownDemo_Menu)
-    UIDropDownMenu_SetText(dropDown, "Select font")
-    print(ADDON_OPTIONS, "config_frame dropDown")
 end
 
 OPTIONS_FRAME:RegisterEvent("ADDON_LOADED")
