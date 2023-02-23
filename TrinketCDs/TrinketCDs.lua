@@ -167,10 +167,22 @@ local function ItemUsedCheck(self)
     self:ApplyItemCD(cdDur)
 end
 
+local GetPlayerBuff = (function()
+    local function retail(buff_index)
+        local _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_index)
+        return stacks, duration, expirationTime, buffSpellID
+    end
+    local function old(buff_index)
+        local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_index)
+        return stacks, duration, expirationTime, buffSpellID
+    end
+    return AuraUtil and retail or old
+end)()
+
 local function player_buff(spell_ID)
     local buff_index = 1
     repeat
-        local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_index)
+        local stacks, duration, expirationTime, buffSpellID = GetPlayerBuff(buff_index)
         if buffSpellID == spell_ID then
             return stacks, duration, expirationTime
         end
@@ -181,7 +193,7 @@ end
 local function player_buff_multi(spell_IDs)
     local buff_index = 1
     repeat
-        local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_index)
+        local stacks, duration, expirationTime, buffSpellID = GetPlayerBuff(buff_index)
         if spell_IDs[buffSpellID] then
             return stacks, duration, expirationTime
         end
@@ -193,7 +205,7 @@ local function player_buff_stacks(spell_ID, stacks_ID)
     local _stacks, _duration, _expiration
     local buff_index = 1
     repeat
-        local _, _, _, stacks, _, duration, expirationTime, _, _, _, buffSpellID = UnitBuff("player", buff_index)
+        local stacks, duration, expirationTime, buffSpellID = GetPlayerBuff(buff_index)
         if buffSpellID == spell_ID then
             _duration = duration
             _expiration = expirationTime
