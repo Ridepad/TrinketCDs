@@ -30,6 +30,8 @@ local procs_grouped_by_CD = {
     },
     [50] = {
         54588,  54572, -- Charred Twilight Scale
+                64790, -- Blood of the Old God
+                65014, -- Pyrite Infuser
     },
     [100] = {
         50365,  50360, -- Phylactery of the Nameless Lich
