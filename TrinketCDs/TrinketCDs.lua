@@ -9,9 +9,9 @@ ADDON.FRAMES = {}
 ADDON.SETTINGS = SETTINGS
 ADDON.ITEM_GROUP = DB.ITEM_GROUP
 ADDON.SORTED_ITEMS = {13, 14, 11, 15, 16, 10, 8, 6}
+ADDON.TRINKET_SWAP_ID = 10725
 
 local ITEMS_CACHE = {}
-local CHICKEN_ID = 10725
 local PRECISION_FORMAT = {[0] = "%d", [1] = "%.1f"}
 local ADDON_PROFILE = format("%sProfile", ADDON_NAME)
 local ADDON_NAME_COLOR = format("|cFFFFFF00[%s]|r: ", ADDON_NAME)
@@ -154,9 +154,9 @@ local function ItemUsedCheck(self)
 
     if cdDur > 30 then
         self.item.CD = cdDur
-        if self.item.ID == CHICKEN_ID and self.item_ID_before_chicken
+        if self.item.ID == ADDON.TRINKET_SWAP_ID and self.item_ID_before_swap
         and GetTime() - cdStart < 5 then
-            EquipItemByName(self.item_ID_before_chicken, self.slot_ID)
+            EquipItemByName(self.item_ID_before_swap, self.slot_ID)
         end
     end
 
@@ -291,7 +291,7 @@ local function ToggleButton(self)
     if not self.button then return end
 
     if SWITCHES.USE_ON_CLICK ~= 0 and self.is_usable
-    or self.item and self.item.ID == CHICKEN_ID then
+    or self.item and self.item.ID == ADDON.TRINKET_SWAP_ID then
         self.button:Show()
     else
         self.button:Hide()
@@ -300,8 +300,8 @@ end
 
 local function ItemUpdate(self)
     local old_ID = self.item and self.item.ID
-    if old_ID and old_ID ~= CHICKEN_ID then
-        self.item_ID_before_chicken = old_ID
+    if old_ID and old_ID ~= ADDON.TRINKET_SWAP_ID then
+        self.item_ID_before_swap = old_ID
     end
 
     local item = get_item(self)
@@ -311,7 +311,8 @@ local function ItemUpdate(self)
 
     self.texture:SetTexture(item.texture)
     self.ilvl_text:SetText(item.ilvl)
-    self.ilvl_text:SetTextColor(unpack(DB.ITEM_QUALITY[item.quality]))
+    local rgb = DB.ITEM_QUALITY[item.quality] or DB.ITEM_QUALITY[1]
+    self.ilvl_text:SetTextColor(rgb())
 
     self.no_swap_cd = item.CD == 0
     self:SetScript("OnUpdate", item.CD ~= 0 and OnUpdate or nil)
@@ -377,11 +378,11 @@ local function OnMouseDown(self, button)
         end
     elseif button == "RightButton" then
         if IsControlKeyDown() then
-            if self.item.ID == CHICKEN_ID then
-                if not self.item_ID_before_chicken then return end
-                EquipItemByName(self.item_ID_before_chicken, self.slot_ID)
+            if self.item.ID == ADDON.TRINKET_SWAP_ID then
+                if not self.item_ID_before_swap then return end
+                EquipItemByName(self.item_ID_before_swap, self.slot_ID)
             else
-                EquipItemByName(CHICKEN_ID, self.slot_ID)
+                EquipItemByName(ADDON.TRINKET_SWAP_ID, self.slot_ID)
             end
         end
     end
@@ -391,11 +392,13 @@ local function OnEvent(self, event, arg1, arg2)
     if event == "UNIT_AURA" then
         if arg1 ~= "player" then return end
         self:AuraCheck()
+    elseif event == "ARENA_TEAM_ROSTER_UPDATE" then
+        self:ResetFrame()
     elseif event == "BAG_UPDATE_COOLDOWN" then
         self:ItemUsedCheck()
 
     elseif event == "MODIFIER_STATE_CHANGED" then
-        if self.button and self.button:IsVisible() then return end
+        if InCombatLockdown() then return end
         self:EnableMouse(arg2 == 1)
 
     elseif event == "PLAYER_REGEN_DISABLED" then
@@ -552,6 +555,7 @@ local function add_functions(self)
     self:RegisterEvent("PLAYER_REGEN_ENABLED")
     self:RegisterEvent("UNIT_AURA")
     self:RegisterEvent("UNIT_NAME_UPDATE")
+    self:RegisterEvent("ARENA_TEAM_ROSTER_UPDATE")
 
     self:SetScript("OnEvent", OnEvent)
     self:SetScript("OnMouseDown", OnMouseDown)
@@ -619,6 +623,22 @@ local function update_nested_settings(svars, key)
     end
 end
 
+local function is_trinket(item_id)
+    return item_id and select(9, GetItemInfo(item_id)) == "INVTYPE_TRINKET"
+end
+local function set_trinket_swap_id()
+    local char_profile = _G["TrinketCDsProfileChar"]
+    if not char_profile then return end
+
+    local trinket_swap_link = char_profile["trinket_swap_link"]
+    if not trinket_swap_link then return end
+
+    local item_id = trinket_swap_link:match("item:(%d+):")
+    if not is_trinket(item_id) then return end
+
+    ADDON.TRINKET_SWAP_ID = tonumber(item_id)
+end
+
 function ADDON:OnEvent(event, arg1)
 	if event == "ADDON_LOADED" then
         if arg1 ~= ADDON_NAME then return end
@@ -633,6 +653,8 @@ function ADDON:OnEvent(event, arg1)
         for _, slot_ID in ipairs(self.SORTED_ITEMS) do
             self.FRAMES[slot_ID] = CreateNewItemFrame(slot_ID)
         end
+
+        set_trinket_swap_id()
 	end
 end
 

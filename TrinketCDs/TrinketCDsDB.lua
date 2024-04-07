@@ -434,6 +434,8 @@ DB.ENCHANTS = {
     ["3870"] = 64568, -- Blood Draining
     ["1900"] = 20007, -- Crusader
     ["3225"] = 42976, -- Executioner
+    ["3859"] = 55001, -- Springy Arachnoweave
+    ["3605"] = 55001, -- Flexweave Underlay
     -- ["3728"] = 55767, -- Darkglow
 }
 
@@ -450,11 +452,11 @@ DB.ENCHANT_PROC_CD = {
 }
 
 DB.ITEM_QUALITY = {
-    [1] = {1.00, 1.00, 1.00},
-    [2] = {0.12, 1.00, 0.00},
-    [3] = {0.00, 0.44, 0.87},
-    [4] = {0.66, 0.33, 1.00},
-    [7] = {0.90, 0.80, 0.50},
+    [1] = function() return 1.00, 1.00, 1.00 end,
+    [2] = function() return 0.12, 1.00, 0.00 end,
+    [3] = function() return 0.00, 0.44, 0.87 end,
+    [4] = function() return 0.66, 0.33, 1.00 end,
+    [7] = function() return 0.90, 0.80, 0.50 end,
 }
 
 DB.ITEM_PROC_TYPES = {

@@ -5,6 +5,7 @@ local FRAMES = ADDON.FRAMES
 local SWITCHES = ADDON.SETTINGS.SWITCHES
 local SLIDER_NAME = ADDON_OPTIONS .. "%sSlider%s"
 local EDITBOX_NAME = ADDON_OPTIONS .. "%sEditBox%s"
+local DEFAULT_TRINKET_SWAP_LINK = "|cffffffff|Hitem:10725:0:0:0:0:0:0:0:80|h[Gnomish Battle Chicken]|h|r"
 
 local OPTIONS_FRAME = CreateFrame("Frame")
 ADDON.OPTIONS = OPTIONS_FRAME
@@ -286,6 +287,63 @@ local function WPDropDownDemo_Menu(frame, level, menuList)
     end
 end
 
+local function add_trinket_swap_edit_box(config_frame)
+    local swap_label = config_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    swap_label:SetPoint("TOPLEFT", MARGIN, -MARGIN * 2 * 11.15)
+    swap_label:SetText("Trinket to swap with ctrl:")
+
+    local swap_info = config_frame:CreateFontString(nil, "OVERLAY", "GameTooltipText")
+    swap_info:SetPoint("TOPLEFT", MARGIN, -MARGIN * 2 * 12)
+    swap_info:SetText("Click on edit box then click on item in inventory.")
+
+    local item_id_eb = CreateFrame("EditBox", ADDON_NAME.."ItemSwapID", config_frame, "InputBoxTemplate")
+    item_id_eb:SetPoint("TOPLEFT", MARGIN * 11, -MARGIN * 2 * 11)
+	item_id_eb:SetSize(200, 20)
+    item_id_eb:SetMultiLine(false)
+    item_id_eb:SetAutoFocus(false)
+    item_id_eb:ClearFocus()
+
+    item_id_eb:SetScript("OnEditFocusGained", function()
+        item_id_eb:RegisterEvent("CURSOR_UPDATE")
+        item_id_eb:RegisterEvent("ITEM_LOCKED")
+    end)
+
+    item_id_eb:SetScript("OnEditFocusLost", function()
+        item_id_eb:UnregisterEvent("CURSOR_UPDATE")
+    end)
+
+    item_id_eb:SetScript("OnEvent", function(f, arg1)
+        if arg1 == "ITEM_LOCKED" then
+            item_id_eb:UnregisterEvent("ITEM_LOCKED")
+            ClearCursor()
+        end
+        local _, item_id, item_link = GetCursorInfo()
+        if not item_id then return end
+
+        item_id_eb:UnregisterEvent("CURSOR_UPDATE")
+        item_id_eb:ClearFocus()
+        if select(9, GetItemInfo(item_id)) ~= "INVTYPE_TRINKET" then
+            print("Not a trinket:", item_link)
+            return
+        end
+
+        item_id_eb:SetText(item_link)
+
+        local char_profile = _G["TrinketCDsProfileChar"]
+        if not char_profile then
+            char_profile = {}
+            _G["TrinketCDsProfileChar"] = char_profile
+        end
+        char_profile["trinket_swap_link"] = item_link
+        ADDON.TRINKET_SWAP_ID = item_id
+    end)
+    item_id_eb:SetScript("OnShow", function ()
+        local char_profile = _G["TrinketCDsProfileChar"]
+        local item_link = char_profile and char_profile["trinket_swap_link"] or DEFAULT_TRINKET_SWAP_LINK
+        item_id_eb:SetText(item_link)
+    end)
+end
+
 function OPTIONS_FRAME:OnEvent(event, arg1)
     if arg1 ~= ADDON_NAME then return end
 
@@ -301,14 +359,16 @@ function OPTIONS_FRAME:OnEvent(event, arg1)
         cb_pos(cb_show, i-1)
     end
 
+    add_trinket_swap_edit_box(config_frame)
+
     if not LSM then return end
 
     local font_font = config_frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    font_font:SetPoint("TOPLEFT", MARGIN, -MARGIN * 2 * 11.25)
+    font_font:SetPoint("TOPLEFT", MARGIN, -MARGIN * 2 * 13.25)
     font_font:SetText("Font:")
 
     dropDown = CreateFrame("Frame", "WPDemoDropDown", config_frame, "UIDropDownMenuTemplate")
-    dropDown:SetPoint("TOPLEFT", MARGIN * 3, -MARGIN * 2 * 11)
+    dropDown:SetPoint("TOPLEFT", MARGIN * 3, -MARGIN * 2 * 13)
     UIDropDownMenu_SetWidth(dropDown, 200)
     UIDropDownMenu_Initialize(dropDown, WPDropDownDemo_Menu)
 end
